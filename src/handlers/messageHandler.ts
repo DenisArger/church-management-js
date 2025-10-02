@@ -3,6 +3,9 @@ import { executeCreatePollCommand } from "../commands/createPollCommand";
 import { executePrayerRequestCommand } from "../commands/prayerRequestCommand";
 import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand";
 import { executeSundayServiceCommand } from "../commands/sundayServiceCommand";
+import { executeTestNotionCommand } from "../commands/testNotionCommand";
+import { executeHelpCommand } from "../commands/helpCommand";
+import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
@@ -30,18 +33,31 @@ export const handleMessage = async (
   }
 
   // Handle commands
-  switch (text.trim()) {
+  const commandParts = text.trim().split(" ");
+  const command = commandParts[0];
+  const params = commandParts.slice(1);
+
+  switch (command) {
     case "/create_poll":
       return await executeCreatePollCommand(userId, chatId);
 
     case "/request_pray":
-      return await executePrayerRequestCommand(userId, chatId);
+      return await executePrayerRequestCommand(userId, chatId, params);
 
     case "/daily_scripture":
       return await executeDailyScriptureCommand(userId, chatId);
 
     case "/request_state_sunday":
       return await executeSundayServiceCommand(userId, chatId);
+
+    case "/test_notion":
+      return await executeTestNotionCommand(userId, chatId);
+
+    case "/help":
+      return await executeHelpCommand(userId, chatId);
+
+    case "/add_prayer":
+      return await executeAddPrayerCommand(userId, chatId, params);
 
     default:
       // Check if it's a prayer request
@@ -52,7 +68,7 @@ export const handleMessage = async (
       return {
         success: false,
         error:
-          "Неизвестная команда. Используйте /create_poll, /request_pray, /daily_scripture или /request_state_sunday",
+          "Неизвестная команда. Используйте /help для списка доступных команд",
       };
   }
 };

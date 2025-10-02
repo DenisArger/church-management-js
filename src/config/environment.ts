@@ -15,12 +15,14 @@ export const getNotionConfig = () => ({
   prayerDatabase: process.env.NOTION_PRAYER_DATABASE!,
   generalCalendarDatabase: process.env.NOTION_GENERAL_CALENDAR_DATABASE!,
   dailyDistributionDatabase: process.env.NOTION_DAILY_DISTRIBUTION_DATABASE!,
+  weeklyPrayerDatabase: process.env.NOTION_WEEKLY_PRAYER_DATABASE!,
 });
 
 export const getAppConfig = () => ({
   nodeEnv: process.env.NODE_ENV || "development",
   logLevel: process.env.LOG_LEVEL || "info",
   logFormat: process.env.LOG_FORMAT || "json",
+  debug: process.env.DEBUG === "true" || process.env.NODE_ENV === "development",
 });
 
 export const validateEnvironment = (): void => {
@@ -30,6 +32,7 @@ export const validateEnvironment = (): void => {
     "NOTION_PRAYER_DATABASE",
     "NOTION_GENERAL_CALENDAR_DATABASE",
     "NOTION_DAILY_DISTRIBUTION_DATABASE",
+    "NOTION_WEEKLY_PRAYER_DATABASE",
   ];
 
   const missing = requiredVars.filter((varName) => !process.env[varName]);
