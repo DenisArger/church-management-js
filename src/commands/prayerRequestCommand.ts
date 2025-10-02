@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { sendMessage, isUserAllowed } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import { getWeeklyPrayerRecords } from "../services/notionService";
 import { logInfo, logWarn } from "../utils/logger";
 import { getAppConfig } from "../config/environment";
@@ -42,16 +42,6 @@ export const executePrayerRequestCommand = async (
       chatId,
       "DEBUG-режим активен, рассылка не будет отправлена"
     );
-  }
-
-  // Check user permissions
-  if (!isUserAllowed(userId)) {
-    logWarn("Unauthorized user tried to request prayers", { userId });
-    return {
-      success: false,
-      error:
-        "У вас нет прав для отправки рассылки. Пожалуйста, обратитесь к администратору",
-    };
   }
 
   try {

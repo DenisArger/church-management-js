@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { sendMessage, isUserAllowed } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import { createWeeklyPrayerRecord } from "../services/notionService";
 import { logInfo, logWarn } from "../utils/logger";
 import {
@@ -15,16 +15,6 @@ export const executeAddPrayerCommand = async (
   params: string[] = []
 ): Promise<CommandResult> => {
   logInfo("Executing add prayer command", { userId, chatId, params });
-
-  // Check user permissions
-  if (!isUserAllowed(userId)) {
-    logWarn("Unauthorized user tried to add prayer", { userId });
-    return {
-      success: false,
-      error:
-        "У вас нет прав для добавления молитвенных записей. Пожалуйста, обратитесь к администратору",
-    };
-  }
 
   // If no parameters, show help
   if (params.length === 0) {

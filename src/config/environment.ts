@@ -2,13 +2,31 @@ import { config } from "dotenv";
 
 config();
 
-export const getTelegramConfig = () => ({
-  botToken: process.env.TELEGRAM_BOT_TOKEN!,
-  allowedUsers: process.env.ALLOWED_USERS?.split(",").map(Number) || [],
-  mainChannelId: process.env.TELEGRAM_MAIN_CHANNEL_ID,
-  mainGroupId: process.env.TELEGRAM_MAIN_GROUP_ID,
-  youthGroupId: process.env.TELEGRAM_YOUTH_GROUP_ID,
-});
+export const getTelegramConfig = () => {
+  const allowedUsersStr = process.env.ALLOWED_USERS;
+  let allowedUsers: number[] = [];
+
+  if (allowedUsersStr) {
+    try {
+      allowedUsers = allowedUsersStr
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
+        .map(Number)
+        .filter((id) => !isNaN(id));
+    } catch (error) {
+      console.warn("Failed to parse ALLOWED_USERS:", error);
+    }
+  }
+
+  return {
+    botToken: process.env.TELEGRAM_BOT_TOKEN!,
+    allowedUsers,
+    mainChannelId: process.env.TELEGRAM_MAIN_CHANNEL_ID,
+    mainGroupId: process.env.TELEGRAM_MAIN_GROUP_ID,
+    youthGroupId: process.env.TELEGRAM_YOUTH_GROUP_ID,
+  };
+};
 
 export const getNotionConfig = () => ({
   token: process.env.NOTION_TOKEN!,

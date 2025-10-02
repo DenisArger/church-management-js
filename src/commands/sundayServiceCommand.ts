@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { sendMessage, isUserAllowed } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import { getCalendarItems } from "../services/notionService";
 import { getCurrentDate, addDays, formatDate } from "../utils/dateHelper";
 import { logInfo, logWarn } from "../utils/logger";
@@ -9,15 +9,6 @@ export const executeSundayServiceCommand = async (
   chatId: number
 ): Promise<CommandResult> => {
   logInfo("Executing sunday service command", { userId, chatId });
-
-  if (!isUserAllowed(userId)) {
-    logWarn("Unauthorized user tried to get sunday service info", { userId });
-    return {
-      success: false,
-      error:
-        "У вас нет прав для получения информации о воскресном служении. Пожалуйста, обратитесь к администратору",
-    };
-  }
 
   try {
     const today = getCurrentDate();
@@ -62,7 +53,10 @@ const getNextSunday = (date: Date): Date => {
   return result;
 };
 
-const formatSundayServiceMessage = (services: any[], date: Date): string => {
+const formatSundayServiceMessage = (
+  services: Array<{ title: string; description?: string }>,
+  date: Date
+): string => {
   let message = `⛪ <b>Воскресное служение - ${formatDate(date)}</b>\n\n`;
 
   services.forEach((service, index) => {

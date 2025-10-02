@@ -1,26 +1,17 @@
 import { CommandResult } from "../types";
-import { sendMessage, isUserAllowed } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import {
   getNotionClient,
   getActivePrayerNeeds,
   getDailyScripture,
 } from "../services/notionService";
-import { logInfo, logWarn, logError } from "../utils/logger";
+import { logInfo, logError } from "../utils/logger";
 
 export const executeTestNotionCommand = async (
   userId: number,
   chatId: number
 ): Promise<CommandResult> => {
   logInfo("Executing test notion command", { userId, chatId });
-
-  if (!isUserAllowed(userId)) {
-    logWarn("Unauthorized user tried to test notion connection", { userId });
-    return {
-      success: false,
-      error:
-        "У вас нет прав для тестирования подключения к Notion. Пожалуйста, обратитесь к администратору",
-    };
-  }
 
   try {
     const testResults = await performNotionTests();
@@ -54,7 +45,7 @@ const performNotionTests = async (): Promise<TestResult[]> => {
 
   // Test 1: Client initialization
   try {
-    const client = getNotionClient();
+    getNotionClient();
     results.push({
       test: "Инициализация клиента",
       success: true,

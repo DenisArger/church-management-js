@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { sendMessage, isUserAllowed } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import { getDailyScripture } from "../services/notionService";
 import { logInfo, logWarn } from "../utils/logger";
 
@@ -8,15 +8,6 @@ export const executeDailyScriptureCommand = async (
   chatId: number
 ): Promise<CommandResult> => {
   logInfo("Executing daily scripture command", { userId, chatId });
-
-  if (!isUserAllowed(userId)) {
-    logWarn("Unauthorized user tried to get daily scripture", { userId });
-    return {
-      success: false,
-      error:
-        "У вас нет прав для получения ежедневного чтения. Пожалуйста, обратитесь к администратору",
-    };
-  }
 
   try {
     const scripture = await getDailyScripture();
@@ -45,7 +36,11 @@ export const executeDailyScriptureCommand = async (
   }
 };
 
-const formatScriptureMessage = (scripture: any): string => {
+const formatScriptureMessage = (scripture: {
+  reference: string;
+  text: string;
+  translation?: string;
+}): string => {
   let message = "📖 <b>Ежедневное чтение Библии</b>\n\n";
   message += `<b>${scripture.reference}</b>\n\n`;
   message += `${scripture.text}\n\n`;

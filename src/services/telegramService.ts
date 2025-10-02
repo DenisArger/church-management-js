@@ -14,15 +14,10 @@ export const getTelegramBot = (): TelegramBot => {
   return botInstance;
 };
 
-export const isUserAllowed = (userId: number): boolean => {
-  const config = getTelegramConfig();
-  return config.allowedUsers.includes(userId);
-};
-
 export const sendMessage = async (
   chatId: number,
   text: string,
-  options?: any
+  options?: Record<string, unknown>
 ): Promise<CommandResult> => {
   try {
     const bot = getTelegramBot();

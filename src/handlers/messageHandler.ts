@@ -1,4 +1,4 @@
-import { TelegramUpdate, CommandResult } from "../types";
+import { TelegramUpdate, CommandResult, TelegramMessage } from "../types";
 import { executeCreatePollCommand } from "../commands/createPollCommand";
 import { executePrayerRequestCommand } from "../commands/prayerRequestCommand";
 import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand";
@@ -9,6 +9,8 @@ import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
+import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
+import { sendMessage } from "../services/telegramService";
 
 export const handleMessage = async (
   update: TelegramUpdate
@@ -36,6 +38,13 @@ export const handleMessage = async (
   const commandParts = text.trim().split(" ");
   const command = commandParts[0];
   const params = commandParts.slice(1);
+
+  // Check authorization for all commands
+  if (!isUserAuthorized(userId)) {
+    return await sendMessage(chatId, getUnauthorizedMessage(), {
+      parse_mode: "HTML",
+    });
+  }
 
   switch (command) {
     case "/create_poll":
@@ -73,9 +82,18 @@ export const handleMessage = async (
   }
 };
 
-const handlePrayerNeed = async (message: any): Promise<CommandResult> => {
+const handlePrayerNeed = async (
+  message: TelegramMessage
+): Promise<CommandResult> => {
   try {
     const text = message.text;
+    if (!text) {
+      return {
+        success: false,
+        error: "No text in prayer message",
+      };
+    }
+
     const author = `${message.from.first_name} ${
       message.from.last_name || ""
     }`.trim();
