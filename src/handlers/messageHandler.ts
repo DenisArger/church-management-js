@@ -2,7 +2,8 @@ import { TelegramUpdate, CommandResult, TelegramMessage } from "../types";
 import { executeCreatePollCommand } from "../commands/createPollCommand";
 import { executePrayerRequestCommand } from "../commands/prayerRequestCommand";
 import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand";
-import { executeSundayServiceCommand } from "../commands/sundayServiceCommand";
+import { executeRequestStateSundayCommand } from "../commands/requestStateSundayCommand";
+import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
 import { executeTestNotionCommand } from "../commands/testNotionCommand";
 import { executeHelpCommand } from "../commands/helpCommand";
 import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
@@ -57,7 +58,10 @@ export const handleMessage = async (
       return await executeDailyScriptureCommand(userId, chatId);
 
     case "/request_state_sunday":
-      return await executeSundayServiceCommand(userId, chatId);
+      return await executeRequestStateSundayCommand(userId, chatId);
+
+    case "/debug_calendar":
+      return await executeDebugCalendarCommand(userId, chatId);
 
     case "/test_notion":
       return await executeTestNotionCommand(userId, chatId);

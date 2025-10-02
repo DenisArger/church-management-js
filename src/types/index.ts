@@ -126,6 +126,7 @@ export interface NotionTitle {
     text?: {
       content?: string;
     };
+    plain_text?: string;
   }>;
 }
 
@@ -133,4 +134,43 @@ export interface NotionSelectProperty {
   select?: {
     name?: string;
   };
+}
+
+// Sunday Service types
+export interface NotionMultiSelectOption {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface NotionMultiSelect {
+  multi_select?: NotionMultiSelectOption[];
+}
+
+export interface NotionCheckbox {
+  checkbox?: boolean;
+}
+
+export interface NotionNumber {
+  number?: number;
+}
+
+export interface SundayServiceItem {
+  id: string;
+  title: string;
+  date: Date;
+  type: string;
+  preachers: NotionMultiSelectOption[];
+  worshipService: string;
+  songBeforeStart: boolean;
+  numWorshipSongs: number | null;
+  soloSong: boolean;
+  repentanceSong: boolean;
+  scriptureReading: string;
+  scriptureReader: string;
+}
+
+export interface SundayServiceInfo {
+  date: Date;
+  services: SundayServiceItem[];
 }
