@@ -11,6 +11,7 @@
     "deploy:full": "./scripts/deploy.sh",
     "setup": "./scripts/setup.sh",
     "webhook:set": "./scripts/webhook-manager.sh set-file",
+    "webhook:set-ngrok": "./scripts/webhook-manager.sh set-ngrok-file",
     "webhook:info": "./scripts/webhook-manager.sh info",
     "webhook:delete": "./scripts/webhook-manager.sh delete",
     "test": "jest",
@@ -20,7 +21,13 @@
     "netlify:build": "netlify build",
     "test:server": "ts-node test-server.ts",
     "test:server:build": "yarn build && node dist/test-server.js",
-    "test:env": "ts-node test-env-check.ts"
+    "test:env": "ts-node test-env-check.ts",
+    "test:ngrok": "./scripts/ngrok-test.sh start",
+    "test:ngrok:stop": "./scripts/ngrok-test.sh stop",
+    "test:ngrok:restart": "./scripts/ngrok-test.sh restart",
+    "test:ngrok:status": "./scripts/ngrok-test.sh status",
+    "test:ngrok:test": "./scripts/ngrok-test.sh test",
+    "test:ngrok:webhook-info": "./scripts/ngrok-test.sh webhook-info"
   },
   "keywords": [
     "telegram",

@@ -165,15 +165,36 @@ set_webhook_from_netlify() {
     set_webhook "$webhook_url"
 }
 
-# Function to set webhook from .netlify-url file
-set_webhook_from_file() {
-    if [ ! -f ".netlify-url" ]; then
-        print_error ".netlify-url file not found. Please run deployment first."
+# Function to set webhook from ngrok URL
+set_webhook_from_ngrok() {
+    local ngrok_url="$1"
+    
+    if [ -z "$ngrok_url" ]; then
+        print_error "ngrok URL is required"
         exit 1
     fi
     
-    netlify_url=$(cat .netlify-url)
-    set_webhook_from_netlify "$netlify_url"
+    # Remove trailing slash if present
+    ngrok_url=$(echo "$ngrok_url" | sed 's:/*$::')
+    
+    # Construct webhook URL
+    webhook_url="${ngrok_url}/.netlify/functions/telegram-webhook"
+    
+    print_status "Setting webhook from ngrok URL: $ngrok_url"
+    print_status "Webhook URL will be: $webhook_url"
+    
+    set_webhook "$webhook_url"
+}
+
+# Function to set webhook from .ngrok-url file
+set_webhook_from_ngrok_file() {
+    if [ ! -f ".ngrok-url" ]; then
+        print_error ".ngrok-url file not found. Please start ngrok session first."
+        exit 1
+    fi
+    
+    ngrok_url=$(cat .ngrok-url)
+    set_webhook_from_ngrok "$ngrok_url"
 }
 
 # Function to show help
@@ -186,19 +207,26 @@ show_help() {
     echo "  set URL                    Set webhook to specified URL"
     echo "  set-netlify URL           Set webhook from Netlify URL"
     echo "  set-file                  Set webhook from .netlify-url file"
+    echo "  set-ngrok URL             Set webhook from ngrok URL"
+    echo "  set-ngrok-file            Set webhook from .ngrok-url file"
     echo "  delete                    Delete current webhook"
     echo "  info                      Get webhook information"
     echo "  test URL                  Test webhook endpoint"
     echo "  test-netlify URL          Test webhook from Netlify URL"
     echo "  test-file                 Test webhook from .netlify-url file"
+    echo "  test-ngrok URL            Test webhook from ngrok URL"
+    echo "  test-ngrok-file           Test webhook from .ngrok-url file"
     echo
     echo "Examples:"
     echo "  $0 set https://mybot.netlify.app/.netlify/functions/telegram-webhook"
     echo "  $0 set-netlify https://mybot.netlify.app"
     echo "  $0 set-file"
+    echo "  $0 set-ngrok https://abc123.ngrok.io"
+    echo "  $0 set-ngrok-file"
     echo "  $0 delete"
     echo "  $0 info"
     echo "  $0 test https://mybot.netlify.app/.netlify/functions/telegram-webhook"
+    echo "  $0 test-ngrok https://abc123.ngrok.io"
     echo
 }
 
@@ -226,6 +254,16 @@ main() {
             ;;
         "set-file")
             set_webhook_from_file
+            ;;
+        "set-ngrok")
+            if [ -z "$2" ]; then
+                print_error "ngrok URL is required for 'set-ngrok' command"
+                exit 1
+            fi
+            set_webhook_from_ngrok "$2"
+            ;;
+        "set-ngrok-file")
+            set_webhook_from_ngrok_file
             ;;
         "delete")
             delete_webhook
@@ -258,6 +296,26 @@ main() {
             netlify_url=$(cat .netlify-url)
             netlify_url=$(echo "$netlify_url" | sed 's:/*$::')
             webhook_url="${netlify_url}/.netlify/functions/telegram-webhook"
+            test_webhook "$webhook_url"
+            ;;
+        "test-ngrok")
+            if [ -z "$2" ]; then
+                print_error "ngrok URL is required for 'test-ngrok' command"
+                exit 1
+            fi
+            ngrok_url="$2"
+            ngrok_url=$(echo "$ngrok_url" | sed 's:/*$::')
+            webhook_url="${ngrok_url}/.netlify/functions/telegram-webhook"
+            test_webhook "$webhook_url"
+            ;;
+        "test-ngrok-file")
+            if [ ! -f ".ngrok-url" ]; then
+                print_error ".ngrok-url file not found. Please start ngrok session first."
+                exit 1
+            fi
+            ngrok_url=$(cat .ngrok-url)
+            ngrok_url=$(echo "$ngrok_url" | sed 's:/*$::')
+            webhook_url="${ngrok_url}/.netlify/functions/telegram-webhook"
             test_webhook "$webhook_url"
             ;;
         "help"|"--help"|"-h")

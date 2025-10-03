@@ -7,6 +7,14 @@ export const formatDate = (date: Date): string => {
   });
 };
 
+export const formatDateShort = (date: Date): string => {
+  return date.toLocaleDateString("ru-RU", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 export const formatTime = (date: Date): string => {
   return date.toLocaleTimeString("ru-RU", {
     hour: "2-digit",

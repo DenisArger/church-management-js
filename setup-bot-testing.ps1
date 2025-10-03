@@ -14,7 +14,8 @@ if ($serverRunning) {
 
 # Start ngrok in background
 Write-Host "Starting ngrok tunnel..." -ForegroundColor Yellow
-$ngrokJob = Start-Job -ScriptBlock { npx ngrok http 8888 --log=stdout }
+$ngrokPath = "C:\ProgramData\chocolatey\bin\ngrok.exe"
+$ngrokJob = Start-Job -ScriptBlock { param($path) & $path http 8888 --log=stdout } -ArgumentList $ngrokPath
 
 # Wait for ngrok to start
 Write-Host "Waiting for ngrok to start..." -ForegroundColor Yellow
