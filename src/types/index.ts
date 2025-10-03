@@ -174,3 +174,21 @@ export interface SundayServiceInfo {
   date: Date;
   services: SundayServiceItem[];
 }
+
+// Weekly Schedule types
+export interface WeeklyServiceItem {
+  id: string;
+  title: string;
+  date: Date;
+  time?: string;
+  type: string;
+  description?: string;
+  location?: string;
+  needsMailing: boolean;
+}
+
+export interface WeeklyScheduleInfo {
+  startDate: Date;
+  endDate: Date;
+  services: WeeklyServiceItem[];
+}

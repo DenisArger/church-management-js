@@ -7,6 +7,7 @@ import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
 import { executeTestNotionCommand } from "../commands/testNotionCommand";
 import { executeHelpCommand } from "../commands/helpCommand";
 import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
+import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
@@ -24,10 +25,12 @@ export const handleMessage = async (
   const chatId = message.chat.id;
   const userId = message.from.id;
   const text = message.text;
+  const chatType = message.chat.type;
 
   logInfo("Processing message", {
     userId,
     chatId,
+    chatType,
     text: text?.substring(0, 100),
   });
 
@@ -40,8 +43,23 @@ export const handleMessage = async (
   const command = commandParts[0];
   const params = commandParts.slice(1);
 
-  // Check authorization for all commands
-  if (!isUserAuthorized(userId)) {
+  // Check if it's a command (starts with /)
+  const isCommand = command.startsWith("/");
+
+  // In groups, only process commands - ignore everything else
+  if (chatType === "group" || chatType === "supergroup") {
+    if (!isCommand) {
+      logInfo("Ignoring non-command message in group", {
+        userId,
+        chatId,
+        text: text.substring(0, 50),
+      });
+      return { success: true, message: "Message ignored" };
+    }
+  }
+
+  // Check authorization for commands
+  if (isCommand && !isUserAuthorized(userId)) {
     return await sendMessage(chatId, getUnauthorizedMessage(), {
       parse_mode: "HTML",
     });
@@ -72,17 +90,22 @@ export const handleMessage = async (
     case "/add_prayer":
       return await executeAddPrayerCommand(userId, chatId, params);
 
+    case "/weekly_schedule":
+      return await executeWeeklyScheduleCommand(userId, chatId);
+
     default:
-      // Check if it's a prayer request
-      if (isPrayerRequest(text)) {
+      // Check if it's a prayer request (only in private chats)
+      if (chatType === "private" && isPrayerRequest(text)) {
         return await handlePrayerNeed(message);
       }
 
-      return {
-        success: false,
-        error:
-          "Неизвестная команда. Используйте /help для списка доступных команд",
-      };
+      // Ignore other messages
+      logInfo("Ignoring message", {
+        userId,
+        chatId,
+        text: text.substring(0, 50),
+      });
+      return { success: true, message: "Message ignored" };
   }
 };
 

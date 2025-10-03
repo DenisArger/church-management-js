@@ -2,6 +2,8 @@ import { Client } from "@notionhq/client";
 import {
   SundayServiceItem,
   SundayServiceInfo,
+  WeeklyServiceItem,
+  WeeklyScheduleInfo,
   NotionTitle,
   NotionDate,
   NotionSelect,
@@ -625,4 +627,322 @@ export const formatServiceInfo = (serviceInfo: SundayServiceInfo): string => {
   }
 
   return message.trim();
+};
+
+/**
+ * Get weekly schedule with services that need mailing
+ * Returns services for the upcoming week with mailing flag enabled
+ */
+export const getWeeklySchedule =
+  async (): Promise<WeeklyScheduleInfo | null> => {
+    try {
+      const client = getNotionClient();
+      const config = getNotionConfig();
+      const today = new Date();
+
+      // Calculate start and end of the week (Monday to Sunday)
+      const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const daysUntilMonday =
+        currentDay === 0 ? 1 : currentDay === 1 ? 0 : 8 - currentDay;
+
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() + daysUntilMonday);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      logInfo("Getting weekly schedule", {
+        weekStart: weekStart.toISOString(),
+        weekEnd: weekEnd.toISOString(),
+      });
+
+      const services = await getWeeklyServices(
+        client,
+        config.generalCalendarDatabase,
+        weekStart,
+        weekEnd
+      );
+
+      if (services.length > 0) {
+        logInfo("Found weekly services", {
+          count: services.length,
+          servicesWithMailing: services.filter((s) => s.needsMailing).length,
+        });
+
+        return {
+          startDate: weekStart,
+          endDate: weekEnd,
+          services: services,
+        };
+      }
+
+      logInfo("No weekly services found");
+      return null;
+    } catch (error) {
+      logError("Error getting weekly schedule", error);
+      return null;
+    }
+  };
+
+/**
+ * Get services for a specific week with mailing filter
+ */
+const getWeeklyServices = async (
+  client: Client,
+  databaseId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<WeeklyServiceItem[]> => {
+  try {
+    const startDateStr = startDate.toISOString().split("T")[0];
+    const endDateStr = endDate.toISOString().split("T")[0];
+
+    logInfo("Querying Notion for weekly services", {
+      databaseId,
+      startDate: startDateStr,
+      endDate: endDateStr,
+    });
+
+    const response = await client.databases.query({
+      database_id: databaseId,
+      filter: {
+        and: [
+          {
+            property: "Дата",
+            date: { on_or_after: startDateStr },
+          },
+          {
+            property: "Дата",
+            date: { on_or_before: endDateStr },
+          },
+          {
+            property: "Нужна рассылка",
+            checkbox: { equals: true },
+          },
+        ],
+      },
+    });
+
+    logInfo("Notion query response for weekly services", {
+      resultsCount: response.results.length,
+    });
+
+    // Map results to WeeklyServiceItem
+    const services: WeeklyServiceItem[] = response.results.map(
+      (page: unknown) => {
+        return mapNotionPageToWeeklyService(page as Record<string, unknown>);
+      }
+    );
+
+    // Sort services by date and time
+    return services.sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      // If same date, sort by time if available
+      if (a.time && b.time) {
+        return a.time.localeCompare(b.time);
+      }
+      return 0;
+    });
+  } catch (error) {
+    logError("Error getting weekly services", error);
+    return [];
+  }
+};
+
+/**
+ * Map Notion page to WeeklyServiceItem
+ */
+const mapNotionPageToWeeklyService = (
+  page: Record<string, unknown>
+): WeeklyServiceItem => {
+  const properties = page.properties as Record<string, unknown>;
+
+  // Try different possible field names for title
+  const possibleTitleFields = [
+    "Название служения",
+    "Название",
+    "Title",
+    "Name",
+    "Заголовок",
+    "Service Title",
+    "Event Title",
+  ];
+  let titleValue = "";
+
+  for (const fieldName of possibleTitleFields) {
+    const titleProp = properties[fieldName] as NotionTitle;
+    if (
+      titleProp?.title?.[0]?.text?.content &&
+      titleProp.title[0].text.content.trim()
+    ) {
+      titleValue = titleProp.title[0].text.content.trim();
+      break;
+    } else if (
+      titleProp?.title?.[0]?.plain_text &&
+      titleProp.title[0].plain_text.trim()
+    ) {
+      titleValue = titleProp.title[0].plain_text.trim();
+      break;
+    }
+  }
+
+  // If no title found, try fallback fields
+  if (!titleValue) {
+    const fallbackFields = [
+      "Примечание",
+      "Описание",
+      "Description",
+      "Note",
+      "Комментарий",
+      "Comment",
+    ];
+
+    for (const fieldName of fallbackFields) {
+      const fallbackProp = properties[fieldName] as NotionRichText;
+      if (
+        fallbackProp?.rich_text?.[0]?.text?.content &&
+        fallbackProp.rich_text[0].text.content.trim()
+      ) {
+        titleValue = fallbackProp.rich_text[0].text.content.trim();
+        break;
+      }
+    }
+  }
+
+  const dateProp = properties["Дата"] as NotionDate;
+  const typeProp = properties["Тип служения"] as NotionSelect;
+  const mailingProp = properties["Нужна рассылка"] as NotionCheckbox;
+
+  // Extract time from date field if it contains time
+  let timeFromDate = undefined;
+  if (dateProp?.date?.start?.includes("T")) {
+    const dateTime = new Date(dateProp.date.start);
+    timeFromDate = dateTime.toLocaleTimeString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Moscow",
+    });
+  }
+
+  // Try different possible field names for time
+  const possibleTimeFields = [
+    "Время",
+    "Time",
+    "Время начала",
+    "Start Time",
+    "Время служения",
+    "Service Time",
+    "Час",
+    "Hour",
+  ];
+  let timeValue = undefined;
+
+  for (const fieldName of possibleTimeFields) {
+    const timeProp = properties[fieldName] as NotionRichText;
+    if (
+      timeProp?.rich_text?.[0]?.text?.content &&
+      timeProp.rich_text[0].text.content.trim()
+    ) {
+      timeValue = timeProp.rich_text[0].text.content.trim();
+      break;
+    }
+  }
+
+  // Try different possible field names for description
+  const possibleDescriptionFields = [
+    "Описание",
+    "Description",
+    "Примечание",
+    "Note",
+    "Комментарий",
+    "Comment",
+    "Детали",
+    "Details",
+    "Информация о служении",
+    "Service Info",
+    "Тема",
+    "Topic",
+    "Содержание",
+    "Content",
+  ];
+  let descriptionValue = undefined;
+
+  for (const fieldName of possibleDescriptionFields) {
+    const descriptionProp = properties[fieldName] as NotionRichText;
+    if (
+      descriptionProp?.rich_text?.[0]?.text?.content &&
+      descriptionProp.rich_text[0].text.content.trim()
+    ) {
+      descriptionValue = descriptionProp.rich_text[0].text.content.trim();
+      break;
+    }
+  }
+
+  // Try different possible field names for location
+  const possibleLocationFields = [
+    "Место",
+    "Место проведения",
+    "Location",
+    "Place",
+    "Адрес",
+    "Address",
+    "Где",
+    "Where",
+    "Место проведения служения",
+    "Service Location",
+    "Зал",
+    "Hall",
+    "Помещение",
+    "Room",
+  ];
+  let locationValue = undefined;
+
+  for (const fieldName of possibleLocationFields) {
+    const locationProp = properties[fieldName] as any;
+
+    // Check if it's a rich text field
+    if (
+      locationProp?.type === "rich_text" &&
+      locationProp?.rich_text?.[0]?.text?.content &&
+      locationProp.rich_text[0].text.content.trim()
+    ) {
+      locationValue = locationProp.rich_text[0].text.content.trim();
+      break;
+    }
+
+    // Check if it's a select field
+    if (locationProp?.type === "select" && locationProp?.select?.name) {
+      locationValue = locationProp.select.name;
+      break;
+    }
+
+    // Check if it's a multi_select field
+    if (
+      locationProp?.type === "multi_select" &&
+      locationProp?.multi_select &&
+      locationProp.multi_select.length > 0
+    ) {
+      locationValue = locationProp.multi_select
+        .map((item: any) => item.name)
+        .join(", ");
+      break;
+    }
+  }
+
+  return {
+    id: page.id as string,
+    title: titleValue || "Служение",
+    date: new Date(
+      (dateProp?.date?.start as string) || (page.created_time as string)
+    ),
+    time: timeValue || timeFromDate,
+    type: typeProp?.select?.name || "",
+    description: descriptionValue,
+    location: locationValue,
+    needsMailing: mailingProp?.checkbox || false,
+  };
 };
