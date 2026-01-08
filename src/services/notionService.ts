@@ -13,6 +13,7 @@ import {
 } from "../types";
 import { logInfo, logError } from "../utils/logger";
 import { getNotionConfig } from "../config/environment";
+import { formatDateForNotion } from "../utils/dateHelper";
 
 let notionClient: Client | null = null;
 
@@ -532,12 +533,16 @@ export const getYouthEventsForDateRange = async (
     const client = getNotionClient();
     const config = getNotionConfig();
 
-    const startDateStr = startDate.toISOString().split("T")[0];
-    const endDateStr = endDate.toISOString().split("T")[0];
+    // Use formatDateForNotion to ensure consistent date formatting with local time
+    // This avoids timezone issues when converting dates
+    const startDateStr = formatDateForNotion(startDate);
+    const endDateStr = formatDateForNotion(endDate);
 
     logInfo("Searching for youth events in date range", {
       startDate: startDateStr,
       endDate: endDateStr,
+      startDateISO: startDate.toISOString(),
+      endDateISO: endDate.toISOString(),
       eventTypes,
     });
 
@@ -566,10 +571,24 @@ export const getYouthEventsForDateRange = async (
       },
     });
 
+    logInfo("Notion query response for youth events", {
+      resultsCount: response.results.length,
+      queryFilter: {
+        dateRange: {
+          start: startDateStr,
+          end: endDateStr,
+        },
+        eventTypes,
+      },
+    });
+
     if (response.results.length === 0) {
       logInfo("No youth events found in date range", {
         startDate: startDateStr,
         endDate: endDateStr,
+        startDateISO: startDate.toISOString(),
+        endDateISO: endDate.toISOString(),
+        eventTypes,
       });
       return [];
     }

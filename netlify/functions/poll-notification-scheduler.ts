@@ -3,6 +3,7 @@ import { sendPollNotification } from "../../src/commands/autoPollCommand";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import { shouldSendNotification } from "../../src/utils/pollScheduler";
 import { logInfo, logError } from "../../src/utils/logger";
+import { addDays } from "../../src/utils/dateHelper";
 
 /**
  * Netlify Scheduled Function for sending poll notifications to administrator
@@ -22,23 +23,37 @@ export const handler: Handler = async (event: HandlerEvent) => {
   try {
     const now = new Date();
     
-    // Check events in the next 4 hours (to catch events starting in 3 hours)
-    const endDate = new Date(now);
-    endDate.setHours(endDate.getHours() + 4);
+    // Search for events on tomorrow (next day)
+    // Start from beginning of tomorrow
+    const tomorrow = addDays(now, 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    // End at end of tomorrow
+    const endOfTomorrow = new Date(tomorrow);
+    endOfTomorrow.setHours(23, 59, 59, 999);
     
     logInfo("Checking for events requiring notifications", {
       now: now.toISOString(),
-      endDate: endDate.toISOString(),
+      tomorrow: tomorrow.toISOString(),
+      endOfTomorrow: endOfTomorrow.toISOString(),
+      nowLocal: now.toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }),
+      tomorrowLocal: tomorrow.toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }),
     });
     
-    // Get youth events in the range
-    const events = await getYouthEventsForDateRange(now, endDate, [
+    // Get youth events for tomorrow
+    const events = await getYouthEventsForDateRange(tomorrow, endOfTomorrow, [
       "Молодежное",
       "МОСТ",
     ]);
     
     if (events.length === 0) {
-      logInfo("No events found in range, skipping notifications");
+      logInfo("No events found for tomorrow, skipping notifications", {
+        searchRange: {
+          start: tomorrow.toISOString(),
+          end: endOfTomorrow.toISOString(),
+        },
+        eventTypes: ["Молодежное", "МОСТ"],
+      });
       return {
         statusCode: 200,
         body: JSON.stringify({
