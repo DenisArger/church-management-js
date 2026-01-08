@@ -426,6 +426,175 @@ export const createWeeklyPrayerRecord = async (
   }
 };
 
+/**
+ * Extract theme from Notion page properties
+ */
+const extractThemeFromProperties = (
+  properties: Record<string, unknown>
+): string => {
+  const descriptionProp = properties["Описание"] as NotionRichText;
+
+  // Try different possible field names for theme
+  const possibleThemeFields = [
+    "Тема",
+    "Topic",
+    "Тема служения",
+    "Service Theme",
+    "Тема встречи",
+    "Meeting Theme",
+    "Содержание",
+    "Content",
+    "Тематика",
+    "Subject",
+    "Информация о служении",
+    "Примечание",
+  ];
+
+  let themeValue = "";
+  let themeFieldName = "";
+
+  for (const fieldName of possibleThemeFields) {
+    const themeProp = properties[fieldName] as NotionRichText;
+    if (
+      themeProp?.rich_text?.[0]?.text?.content &&
+      themeProp.rich_text[0].text.content.trim()
+    ) {
+      themeValue = themeProp.rich_text[0].text.content.trim();
+      themeFieldName = fieldName;
+      logInfo(`Found theme in field: ${fieldName}`, { theme: themeValue });
+      break;
+    }
+  }
+
+  // If no theme found in dedicated fields, try to extract from description
+  if (!themeValue && descriptionProp?.rich_text?.[0]?.text?.content) {
+    const description = descriptionProp.rich_text[0].text.content;
+
+    // Look for theme patterns in description
+    const themePatterns = [
+      /Тема:\s*(.+)/i,
+      /тема:\s*(.+)/i,
+      /Theme:\s*(.+)/i,
+      /["']([^"']+)["']/, // Theme in quotes
+    ];
+
+    for (const pattern of themePatterns) {
+      const match = description.match(pattern);
+      if (match) {
+        themeValue = match[1].trim();
+        themeFieldName = "Описание (extracted)";
+        logInfo(`Extracted theme from description`, { theme: themeValue });
+        break;
+      }
+    }
+  }
+
+  return themeValue;
+};
+
+/**
+ * Map Notion page to CalendarItem
+ */
+const mapNotionPageToCalendarItem = (
+  page: Record<string, unknown>
+): CalendarItem => {
+  const properties = page.properties as Record<string, unknown>;
+
+  const titleProp = properties["Название служения"] as NotionTitle;
+  const dateProp = properties["Дата"] as NotionDate;
+  const descriptionProp = properties["Описание"] as NotionRichText;
+  const serviceTypeProp = properties["Тип служения"] as NotionSelect;
+
+  const themeValue = extractThemeFromProperties(properties);
+
+  return {
+    id: page.id as string,
+    title: titleProp?.title?.[0]?.text?.content || "",
+    date: new Date(
+      (dateProp?.date?.start as string) || (page.created_time as string)
+    ),
+    description: descriptionProp?.rich_text?.[0]?.text?.content,
+    theme: themeValue,
+    type: "event" as const,
+    serviceType: serviceTypeProp?.select?.name,
+  };
+};
+
+/**
+ * Get youth events (МОСТ and Молодежное) for a date range
+ */
+export const getYouthEventsForDateRange = async (
+  startDate: Date,
+  endDate: Date,
+  eventTypes: string[] = ["Молодежное", "МОСТ"]
+): Promise<CalendarItem[]> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    const startDateStr = startDate.toISOString().split("T")[0];
+    const endDateStr = endDate.toISOString().split("T")[0];
+
+    logInfo("Searching for youth events in date range", {
+      startDate: startDateStr,
+      endDate: endDateStr,
+      eventTypes,
+    });
+
+    // Build filter for event types
+    const typeFilters = eventTypes.map((eventType) => ({
+      property: "Тип служения",
+      select: { equals: eventType },
+    }));
+
+    const response = await client.databases.query({
+      database_id: config.generalCalendarDatabase,
+      filter: {
+        and: [
+          {
+            property: "Дата",
+            date: { on_or_after: startDateStr },
+          },
+          {
+            property: "Дата",
+            date: { on_or_before: endDateStr },
+          },
+          {
+            or: typeFilters,
+          },
+        ],
+      },
+    });
+
+    if (response.results.length === 0) {
+      logInfo("No youth events found in date range", {
+        startDate: startDateStr,
+        endDate: endDateStr,
+      });
+      return [];
+    }
+
+    const events: CalendarItem[] = response.results.map((page: unknown) => {
+      return mapNotionPageToCalendarItem(page as Record<string, unknown>);
+    });
+
+    logInfo("Youth events found in date range", {
+      count: events.length,
+      events: events.map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.date.toISOString(),
+        hasTheme: !!e.theme,
+      })),
+    });
+
+    return events;
+  } catch (error) {
+    logError("Error getting youth events for date range", error);
+    return [];
+  }
+};
+
 export const getYouthEventForTomorrow =
   async (): Promise<CalendarItem | null> => {
     try {
@@ -463,91 +632,7 @@ export const getYouthEventForTomorrow =
       }
 
       const page = response.results[0] as Record<string, unknown>;
-      const properties = page.properties as Record<string, unknown>;
-
-      // Debug: Log all available properties
-      logInfo("Available properties in Notion page", {
-        propertyNames: Object.keys(properties),
-        properties: properties,
-      });
-
-      const titleProp = properties["Название служения"] as NotionTitle;
-      const dateProp = properties["Дата"] as NotionDate;
-      const descriptionProp = properties["Описание"] as NotionRichText;
-
-      // Try different possible field names for theme
-      const possibleThemeFields = [
-        "Тема",
-        "Topic",
-        "Тема служения",
-        "Service Theme",
-        "Тема встречи",
-        "Meeting Theme",
-        "Содержание",
-        "Content",
-        "Тематика",
-        "Subject",
-        "Информация о служении", // Use existing field from Notion
-        "Примечание", // Use existing field from Notion
-      ];
-
-      let themeValue = "";
-      let themeFieldName = "";
-
-      for (const fieldName of possibleThemeFields) {
-        const themeProp = properties[fieldName] as NotionRichText;
-        if (
-          themeProp?.rich_text?.[0]?.text?.content &&
-          themeProp.rich_text[0].text.content.trim()
-        ) {
-          themeValue = themeProp.rich_text[0].text.content.trim();
-          themeFieldName = fieldName;
-          logInfo(`Found theme in field: ${fieldName}`, { theme: themeValue });
-          break;
-        }
-      }
-
-      // If no theme found in dedicated fields, try to extract from description
-      if (!themeValue && descriptionProp?.rich_text?.[0]?.text?.content) {
-        const description = descriptionProp.rich_text[0].text.content;
-
-        // Look for theme patterns in description
-        const themePatterns = [
-          /Тема:\s*(.+)/i,
-          /тема:\s*(.+)/i,
-          /Theme:\s*(.+)/i,
-          /["']([^"']+)["']/, // Theme in quotes
-        ];
-
-        for (const pattern of themePatterns) {
-          const match = description.match(pattern);
-          if (match) {
-            themeValue = match[1].trim();
-            themeFieldName = "Описание (extracted)";
-            logInfo(`Extracted theme from description`, { theme: themeValue });
-            break;
-          }
-        }
-      }
-
-      // Debug: Log theme field specifically
-      logInfo("Theme field debug", {
-        themeFieldName,
-        themeValue,
-        checkedFields: possibleThemeFields,
-        descriptionContent: descriptionProp?.rich_text?.[0]?.text?.content,
-      });
-
-      const youthEvent: CalendarItem = {
-        id: page.id as string,
-        title: titleProp?.title?.[0]?.text?.content || "",
-        date: new Date(
-          (dateProp?.date?.start as string) || (page.created_time as string)
-        ),
-        description: descriptionProp?.rich_text?.[0]?.text?.content,
-        theme: themeValue,
-        type: "event" as const,
-      };
+      const youthEvent = mapNotionPageToCalendarItem(page);
 
       logInfo("Youth event found for tomorrow", {
         eventId: youthEvent.id,

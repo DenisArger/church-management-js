@@ -40,9 +40,15 @@ export const getTelegramConfigForMode = (isDebug: boolean) => {
       topicId: config.debugTopicId ? parseInt(config.debugTopicId) : undefined,
     };
   } else {
+    let chatId: number | null = null;
+    if (config.youthGroupId) {
+      // Parse as integer, handling negative numbers correctly
+      const parsed = parseInt(config.youthGroupId.trim(), 10);
+      chatId = isNaN(parsed) ? null : parsed;
+    }
     return {
       bot: getTelegramBot(),
-      chatId: config.youthGroupId ? parseInt(config.youthGroupId) : null,
+      chatId: chatId,
       topicId: undefined,
     };
   }

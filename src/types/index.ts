@@ -63,6 +63,7 @@ export interface CalendarItem {
   description?: string;
   theme?: string;
   type: "service" | "meeting" | "event";
+  serviceType?: string; // Type of service from Notion (e.g., "Молодежное", "МОСТ")
 }
 
 export interface DailyScripture {

@@ -7,9 +7,8 @@ import { logInfo, logError } from "../../src/utils/logger";
  * Runs daily at 18:00 UTC (21:00 Moscow time) to check for youth events tomorrow
  *
  * To schedule this function, add to netlify.toml:
- * [[functions]]
+ * [functions."youth-poll-scheduler"]
  *   schedule = "0 18 * * *"
- *   function = "youth-poll-scheduler"
  */
 export const handler: Handler = async (event: HandlerEvent) => {
   logInfo("Youth poll scheduler triggered", {

@@ -1116,9 +1116,8 @@ logInfo("Processing message", {
 
 **Конфигурация в `netlify.toml`**:
 ```toml
-[functions.scheduler]
+[functions."youth-poll-scheduler"]
   schedule = "0 18 * * *"
-  function = "youth-poll-scheduler"
 ```
 
 **Функциональность**:
@@ -1619,9 +1618,8 @@ yarn webhook:delete
 [functions]
   node_bundler = "esbuild"
 
-[functions.scheduler]
+[functions."youth-poll-scheduler"]
   schedule = "0 18 * * *"
-  function = "youth-poll-scheduler"
 ```
 
 ---

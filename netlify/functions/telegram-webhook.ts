@@ -1,7 +1,11 @@
 import { Handler } from "@netlify/functions";
+import { config } from "dotenv";
 import { handleUpdate } from "../../src/handlers/messageHandler";
 import { validateEnvironment } from "../../src/config/environment";
 import { logInfo, logError } from "../../src/utils/logger";
+
+// Load environment variables (dotenv is already called in environment.ts, but ensure it's loaded here too)
+config();
 
 // Validate environment on startup
 try {
