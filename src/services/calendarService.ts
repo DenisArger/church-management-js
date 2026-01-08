@@ -12,6 +12,8 @@ import {
   NotionNumber,
   NotionRichText,
   NotionMultiSelectOption,
+  CommandResult,
+  SundayServiceFormData,
 } from "../types";
 import { getNotionClient } from "./notionService";
 import { getNotionConfig } from "../config/environment";
@@ -801,4 +803,434 @@ const mapNotionPageToWeeklyService = (
     location: locationValue,
     needsMailing: mailingProp?.checkbox || false,
   };
+};
+
+/**
+ * Create Sunday service in Notion
+ */
+export const createSundayService = async (
+  serviceData: SundayServiceFormData,
+  streamType: "1" | "2"
+): Promise<CommandResult> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    const streamData =
+      serviceData.stream === "both"
+        ? streamType === "1"
+          ? serviceData.stream1Data
+          : serviceData.stream2Data
+        : serviceData;
+
+    if (!streamData || !serviceData.date) {
+      return {
+        success: false,
+        error: "Недостаточно данных для создания служения",
+      };
+    }
+
+    const serviceType =
+      streamType === "1" ? ITEM_TYPE_SUNDAY_1 : ITEM_TYPE_SUNDAY_2;
+
+    // Format date for Notion
+    const dateStr = new Date(serviceData.date).toISOString().split("T")[0];
+
+    // Generate title if not provided
+    let serviceTitle = streamData.title;
+    if (!serviceTitle || serviceTitle.trim() === "") {
+      const dateStr = new Date(serviceData.date).toLocaleDateString("ru-RU");
+      const streamName = streamType === "1" ? "I поток" : "II поток";
+      serviceTitle = `Воскресное служение ${streamName} - ${dateStr}`;
+    }
+
+    // Prepare properties
+    const properties: Record<string, unknown> = {
+      "Название служения": {
+        title: [{ text: { content: serviceTitle } }],
+      },
+      Дата: {
+        date: { start: dateStr },
+      },
+      "Тип служения": {
+        select: { name: serviceType },
+      },
+    };
+
+    // Add preachers (multi-select)
+    if (streamData.preachers && streamData.preachers.length > 0) {
+      properties["Проповедники"] = {
+        multi_select: streamData.preachers.map((name) => ({ name })),
+      };
+    }
+
+    // Add worship service
+    if (streamData.worshipService) {
+      properties["Музыкальное служение"] = {
+        select: { name: streamData.worshipService },
+      };
+    }
+
+    // Add song before start
+    if (streamData.songBeforeStart !== undefined) {
+      // Use "Песня перед началом" as the standard field name
+      properties["Песня перед началом"] = {
+        checkbox: streamData.songBeforeStart,
+      };
+    }
+
+    // Add number of worship songs
+    if (streamData.numWorshipSongs !== null && streamData.numWorshipSongs !== undefined) {
+      properties["Количество песен на прославлении"] = {
+        number: streamData.numWorshipSongs,
+      };
+    }
+
+    // Add solo song
+    if (streamData.soloSong !== undefined) {
+      properties["Песня группы"] = {
+        checkbox: streamData.soloSong,
+      };
+    }
+
+    // Add repentance song
+    if (streamData.repentanceSong !== undefined) {
+      properties["Песня на покаяние"] = {
+        checkbox: streamData.repentanceSong,
+      };
+    }
+
+    // Add scripture reading
+    if (streamData.scriptureReading) {
+      properties["Чтение Писания"] = {
+        rich_text: [{ text: { content: streamData.scriptureReading } }],
+      };
+    }
+
+    // Add scripture reader
+    if (streamData.scriptureReader) {
+      properties["Чтец Писания"] = {
+        select: { name: streamData.scriptureReader },
+      };
+    }
+
+    const response = await client.pages.create({
+      parent: { database_id: config.generalCalendarDatabase },
+      properties: properties as any,
+    });
+
+    logInfo("Sunday service created", {
+      pageId: response.id,
+      streamType,
+      date: dateStr,
+    });
+
+    return {
+      success: true,
+      message: "Воскресное служение успешно создано",
+      data: { pageId: response.id },
+    };
+  } catch (error) {
+    logError("Error creating Sunday service", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Неизвестная ошибка при создании служения",
+    };
+  }
+};
+
+/**
+ * Update Sunday service in Notion
+ */
+export const updateSundayService = async (
+  serviceId: string,
+  serviceData: SundayServiceFormData,
+  streamType?: "1" | "2"
+): Promise<CommandResult> => {
+  try {
+    const client = getNotionClient();
+
+    const streamData =
+      serviceData.stream === "both" && streamType
+        ? streamType === "1"
+          ? serviceData.stream1Data
+          : serviceData.stream2Data
+        : serviceData;
+
+    if (!streamData) {
+      return {
+        success: false,
+        error: "Недостаточно данных для обновления служения",
+      };
+    }
+
+    // Prepare properties to update
+    const properties: Record<string, unknown> = {};
+
+    if (streamData.title) {
+      properties["Название служения"] = {
+        title: [{ text: { content: streamData.title } }],
+      };
+    }
+
+    if (serviceData.date) {
+      const dateStr = new Date(serviceData.date).toISOString().split("T")[0];
+      properties["Дата"] = {
+        date: { start: dateStr },
+      };
+    }
+
+    if (streamData.preachers && streamData.preachers.length > 0) {
+      properties["Проповедники"] = {
+        multi_select: streamData.preachers.map((name) => ({ name })),
+      };
+    }
+
+    if (streamData.worshipService) {
+      properties["Музыкальное служение"] = {
+        select: { name: streamData.worshipService },
+      };
+    }
+
+    if (streamData.songBeforeStart !== undefined) {
+      // Use only the field that exists in the database
+      // Try "Песня перед началом" first, as it's more common
+      properties["Песня перед началом"] = {
+        checkbox: streamData.songBeforeStart,
+      };
+    }
+
+    if (streamData.numWorshipSongs !== null && streamData.numWorshipSongs !== undefined) {
+      properties["Количество песен на прославлении"] = {
+        number: streamData.numWorshipSongs,
+      };
+    }
+
+    if (streamData.soloSong !== undefined) {
+      properties["Песня группы"] = {
+        checkbox: streamData.soloSong,
+      };
+    }
+
+    if (streamData.repentanceSong !== undefined) {
+      properties["Песня на покаяние"] = {
+        checkbox: streamData.repentanceSong,
+      };
+    }
+
+    if (streamData.scriptureReading !== undefined) {
+      properties["Чтение Писания"] = {
+        rich_text: streamData.scriptureReading
+          ? [{ text: { content: streamData.scriptureReading } }]
+          : [],
+      };
+    }
+
+    if (streamData.scriptureReader !== undefined) {
+      if (streamData.scriptureReader) {
+        properties["Чтец Писания"] = {
+          select: { name: streamData.scriptureReader },
+        };
+      }
+    }
+
+    await client.pages.update({
+      page_id: serviceId,
+      properties: properties as any,
+    });
+
+    logInfo("Sunday service updated", {
+      pageId: serviceId,
+      streamType,
+    });
+
+    return {
+      success: true,
+      message: "Воскресное служение успешно обновлено",
+    };
+  } catch (error) {
+    logError("Error updating Sunday service", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Неизвестная ошибка при обновлении служения",
+    };
+  }
+};
+
+/**
+ * Get Sunday service by date and stream type
+ */
+export const getSundayServiceByDate = async (
+  date: Date,
+  streamType: "1" | "2"
+): Promise<SundayServiceItem | null> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    const serviceType =
+      streamType === "1" ? ITEM_TYPE_SUNDAY_1 : ITEM_TYPE_SUNDAY_2;
+    const dateStr = date.toISOString().split("T")[0];
+
+    const services = await getServicesForDate(
+      client,
+      config.generalCalendarDatabase,
+      date
+    );
+
+    const service = services.find((s) => s.type === serviceType);
+
+    if (service) {
+      logInfo("Sunday service found", {
+        serviceId: service.id,
+        date: dateStr,
+        streamType,
+      });
+      return service;
+    }
+
+    logInfo("Sunday service not found", { date: dateStr, streamType });
+    return null;
+  } catch (error) {
+    logError("Error getting Sunday service by date", error);
+    return null;
+  }
+};
+
+/**
+ * Get available worship services from Notion database
+ * Extracts unique values from existing records and schema options
+ */
+export const getWorshipServices = async (): Promise<string[]> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    // First, try to get options from database schema
+    try {
+      const database = await client.databases.retrieve({
+        database_id: config.generalCalendarDatabase,
+      });
+
+      const worshipServiceProperty = database.properties[
+        "Музыкальное служение"
+      ] as any;
+
+      if (
+        worshipServiceProperty &&
+        worshipServiceProperty.type === "select" &&
+        worshipServiceProperty.select?.options
+      ) {
+        const options = worshipServiceProperty.select.options.map(
+          (opt: any) => opt.name
+        );
+        logInfo("Retrieved worship services from schema", {
+          count: options.length,
+        });
+        return options;
+      }
+    } catch (schemaError) {
+      logWarn("Could not get worship services from schema", schemaError);
+    }
+
+    // Fallback: get unique values from existing records
+    const response = await client.databases.query({
+      database_id: config.generalCalendarDatabase,
+      page_size: 100,
+    });
+
+    const worshipServicesSet = new Set<string>();
+
+    response.results.forEach((page: any) => {
+      const worshipServiceProp = page.properties[
+        "Музыкальное служение"
+      ] as NotionSelect;
+      if (worshipServiceProp?.select?.name) {
+        worshipServicesSet.add(worshipServiceProp.select.name);
+      }
+    });
+
+    const worshipServices = Array.from(worshipServicesSet).sort();
+    logInfo("Retrieved worship services from records", {
+      count: worshipServices.length,
+    });
+
+    return worshipServices;
+  } catch (error) {
+    logError("Error getting worship services", error);
+    // Return empty array on error
+    return [];
+  }
+};
+
+/**
+ * Get available scripture readers from Notion database
+ * Extracts unique values from existing records and schema options
+ */
+export const getScriptureReaders = async (): Promise<string[]> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    // First, try to get options from database schema
+    try {
+      const database = await client.databases.retrieve({
+        database_id: config.generalCalendarDatabase,
+      });
+
+      const scriptureReaderProperty = database.properties[
+        "Чтец Писания"
+      ] as any;
+
+      if (
+        scriptureReaderProperty &&
+        scriptureReaderProperty.type === "select" &&
+        scriptureReaderProperty.select?.options
+      ) {
+        const options = scriptureReaderProperty.select.options.map(
+          (opt: any) => opt.name
+        );
+        logInfo("Retrieved scripture readers from schema", {
+          count: options.length,
+        });
+        return options;
+      }
+    } catch (schemaError) {
+      logWarn("Could not get scripture readers from schema", schemaError);
+    }
+
+    // Fallback: get unique values from existing records
+    const response = await client.databases.query({
+      database_id: config.generalCalendarDatabase,
+      page_size: 100,
+    });
+
+    const scriptureReadersSet = new Set<string>();
+
+    response.results.forEach((page: any) => {
+      const scriptureReaderProp = page.properties[
+        "Чтец Писания"
+      ] as NotionSelect;
+      if (scriptureReaderProp?.select?.name) {
+        scriptureReadersSet.add(scriptureReaderProp.select.name);
+      }
+    });
+
+    const scriptureReaders = Array.from(scriptureReadersSet).sort();
+    logInfo("Retrieved scripture readers from records", {
+      count: scriptureReaders.length,
+    });
+
+    return scriptureReaders;
+  } catch (error) {
+    logError("Error getting scripture readers", error);
+    // Return empty array on error
+    return [];
+  }
 };

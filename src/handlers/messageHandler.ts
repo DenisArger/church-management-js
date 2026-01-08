@@ -11,12 +11,18 @@ import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand"
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
 import { executeYouthPollCommand } from "../commands/youthPollCommand";
 import { executeShowMenuCommand } from "../commands/showMenuCommand";
+import {
+  executeFillSundayServiceCommand,
+  handleSundayServiceCallback,
+  handleSundayServiceTextInput,
+} from "../commands/fillSundayServiceCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
 import { parseCallbackData } from "../utils/menuBuilder";
+import { hasActiveState } from "../utils/sundayServiceState";
 
 export const handleUpdate = async (
   update: TelegramUpdate
@@ -66,6 +72,12 @@ export const handleMessage = async (
 
   // Check if it's a command (starts with /)
   const isCommand = command.startsWith("/");
+
+  // Check if user is in Sunday service form filling process
+  if (!isCommand && chatType === "private" && hasActiveState(userId)) {
+    // Handle text input for Sunday service form
+    return await handleSundayServiceTextInput(userId, chatId, text);
+  }
 
   // In groups, only process commands - ignore everything else
   if (chatType === "group" || chatType === "supergroup") {
@@ -122,6 +134,10 @@ export const handleMessage = async (
 
     case "/menu":
       return await executeShowMenuCommand(userId, chatId);
+
+    case "/fill_sunday_service":
+    case "/edit_sunday_service":
+      return await executeFillSundayServiceCommand(userId, chatId);
 
     default:
       // Check if it's a prayer request (only in private chats)
@@ -202,6 +218,18 @@ const handleCallbackQuery = async (
     return { success: false, error: "Unauthorized" };
   }
 
+  // Check if it's a Sunday service callback
+  if (callbackData.startsWith("sunday:")) {
+    await answerCallbackQuery(callbackQueryId);
+    const messageId = callbackQuery.message?.message_id;
+    return await handleSundayServiceCallback(
+      userId,
+      chatId,
+      callbackData,
+      messageId
+    );
+  }
+
   // Parse callback data
   const parsed = parseCallbackData(callbackData);
 
@@ -238,6 +266,10 @@ const handleCallbackQuery = async (
 
       case "request_state_sunday":
         return await executeRequestStateSundayCommand(userId, chatId);
+
+      case "fill_sunday_service":
+      case "edit_sunday_service":
+        return await executeFillSundayServiceCommand(userId, chatId);
 
       case "youth_poll":
         return await executeYouthPollCommand(userId, chatId);

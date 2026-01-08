@@ -202,3 +202,53 @@ export interface WeeklyScheduleInfo {
   endDate: Date;
   services: WeeklyServiceItem[];
 }
+
+// Sunday Service Form types
+export type SundayServiceMode = "create" | "edit";
+export type SundayServiceStream = "1" | "2" | "both";
+export type SundayServiceStep =
+  | "mode"
+  | "date"
+  | "stream"
+  | "title"
+  | "preachers"
+  | "worshipService"
+  | "songBeforeStart"
+  | "numWorshipSongs"
+  | "soloSong"
+  | "repentanceSong"
+  | "scriptureReading"
+  | "scriptureReader"
+  | "review"
+  | "completed";
+
+export interface SundayServiceFormData {
+  mode?: SundayServiceMode;
+  date?: Date;
+  stream?: SundayServiceStream;
+  serviceId?: string; // For edit mode
+  title?: string;
+  preachers?: string[];
+  worshipService?: string;
+  songBeforeStart?: boolean;
+  numWorshipSongs?: number | null;
+  soloSong?: boolean;
+  repentanceSong?: boolean;
+  scriptureReading?: string;
+  scriptureReader?: string;
+  currentStream?: "1" | "2"; // When filling both streams
+  stream1Data?: Partial<SundayServiceFormData>;
+  stream2Data?: Partial<SundayServiceFormData>;
+  preachersPage?: number; // Current page for preachers selection
+  worshipServicesList?: string[]; // Cached list of worship services for callback data
+  scriptureReadersList?: string[]; // Cached list of scripture readers for callback data
+}
+
+export interface SundayServiceState {
+  userId: number;
+  chatId: number;
+  step: SundayServiceStep;
+  data: SundayServiceFormData;
+  messageId?: number; // ID of the message with inline keyboard
+  waitingForTextInput?: boolean; // True when waiting for text input
+}

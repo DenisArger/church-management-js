@@ -35,6 +35,9 @@ export function buildMainMenu(): InlineKeyboardMarkup {
     { text: "📆 Неделя", callback_data: "cmd:weekly_schedule" },
     { text: "⛪ Воскресенье", callback_data: "cmd:request_state_sunday" },
   ]);
+  buttons.push([
+    { text: "✏️ Заполнить воскресное", callback_data: "cmd:fill_sunday_service" },
+  ]);
 
   // Polls category
   buttons.push([
