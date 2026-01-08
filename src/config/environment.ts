@@ -40,12 +40,18 @@ export const getNotionConfig = () => ({
   weeklyPrayerDatabase: process.env.NOTION_WEEKLY_PRAYER_DATABASE!,
 });
 
-export const getAppConfig = () => ({
-  nodeEnv: process.env.NODE_ENV || "development",
-  logLevel: process.env.LOG_LEVEL || "info",
-  logFormat: process.env.LOG_FORMAT || "json",
-  debug: process.env.DEBUG === "true" || process.env.NODE_ENV === "development",
-});
+export const getAppConfig = () => {
+  // DEBUG mode is explicitly set to "true" or NODE_ENV is development AND DEBUG is not explicitly "false"
+  const isDebug = process.env.DEBUG === "true" || 
+    (process.env.NODE_ENV === "development" && process.env.DEBUG !== "false");
+  
+  return {
+    nodeEnv: process.env.NODE_ENV || "development",
+    logLevel: process.env.LOG_LEVEL || "info",
+    logFormat: process.env.LOG_FORMAT || "json",
+    debug: isDebug,
+  };
+};
 
 export const validateEnvironment = (): void => {
   const requiredVars = [
