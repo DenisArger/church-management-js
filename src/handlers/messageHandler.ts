@@ -1,7 +1,7 @@
 import { TelegramUpdate, CommandResult, TelegramMessage } from "../types";
 import { executeCreatePollCommand } from "../commands/createPollCommand";
 import { executePrayerRequestCommand } from "../commands/prayerRequestCommand";
-import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand";
+// import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand"; // Disabled: functionality not needed
 import { executeRequestStateSundayCommand } from "../commands/requestStateSundayCommand";
 import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
 import { executeTestNotionCommand } from "../commands/testNotionCommand";
@@ -139,8 +139,9 @@ export const handleMessage = async (
     case "/request_pray":
       return await executePrayerRequestCommand(userId, chatId, params);
 
-    case "/daily_scripture":
-      return await executeDailyScriptureCommand(userId, chatId);
+    // case "/daily_scripture":
+    //   return await executeDailyScriptureCommand(userId, chatId);
+    // Disabled: functionality not needed
 
     case "/request_state_sunday":
       return await executeRequestStateSundayCommand(userId, chatId);
@@ -630,8 +631,9 @@ const handleCallbackQuery = async (
       case "request_pray":
         return await executePrayerRequestCommand(userId, chatId, params);
 
-      case "daily_scripture":
-        return await executeDailyScriptureCommand(userId, chatId);
+      // case "daily_scripture":
+      //   return await executeDailyScriptureCommand(userId, chatId);
+      // Disabled: functionality not needed
 
       case "create_poll":
         return await executeCreatePollCommand(userId, chatId);
