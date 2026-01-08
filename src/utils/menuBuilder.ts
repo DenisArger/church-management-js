@@ -37,6 +37,7 @@ export function buildMainMenu(): InlineKeyboardMarkup {
   ]);
   buttons.push([
     { text: "✏️ Заполнить воскресное", callback_data: "cmd:fill_sunday_service" },
+    { text: "📝 Редактировать расписание", callback_data: "cmd:edit_schedule" },
   ]);
 
   // Polls category

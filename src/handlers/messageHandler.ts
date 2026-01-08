@@ -16,6 +16,11 @@ import {
   handleSundayServiceCallback,
   handleSundayServiceTextInput,
 } from "../commands/fillSundayServiceCommand";
+import {
+  executeEditScheduleCommand,
+  handleScheduleCallback,
+  handleScheduleTextInput,
+} from "../commands/editScheduleCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
@@ -31,6 +36,9 @@ import {
   getCurrentStream,
   saveCurrentStreamData,
 } from "../utils/sundayServiceState";
+import {
+  hasActiveState as hasActiveScheduleState,
+} from "../utils/scheduleState";
 import {
   isScriptureSchedule,
   parseScriptureSchedule,
@@ -113,6 +121,12 @@ export const handleMessage = async (
     return await handleSundayServiceTextInput(userId, chatId, text);
   }
 
+  // Check if user is in schedule form filling process
+  if (!isCommand && chatType === "private" && hasActiveScheduleState(userId)) {
+    // Handle regular text input for schedule form
+    return await handleScheduleTextInput(userId, chatId, text);
+  }
+
   // In groups, only process commands - ignore everything else
   if (chatType === "group" || chatType === "supergroup") {
     if (!isCommand) {
@@ -173,6 +187,9 @@ export const handleMessage = async (
     case "/fill_sunday_service":
     case "/edit_sunday_service":
       return await executeFillSundayServiceCommand(userId, chatId);
+
+    case "/edit_schedule":
+      return await executeEditScheduleCommand(userId, chatId);
 
     default:
       // Check if it's a prayer request (only in private chats)
@@ -612,6 +629,18 @@ const handleCallbackQuery = async (
     );
   }
 
+  // Check if it's a schedule callback
+  if (callbackData.startsWith("schedule:")) {
+    await answerCallbackQuery(callbackQueryId);
+    const messageId = callbackQuery.message?.message_id;
+    return await handleScheduleCallback(
+      userId,
+      chatId,
+      callbackData,
+      messageId
+    );
+  }
+
   // Parse callback data
   const parsed = parseCallbackData(callbackData);
 
@@ -661,6 +690,9 @@ const handleCallbackQuery = async (
       case "fill_sunday_service":
       case "edit_sunday_service":
         return await executeFillSundayServiceCommand(userId, chatId);
+
+      case "edit_schedule":
+        return await executeEditScheduleCommand(userId, chatId);
 
       case "youth_poll":
         return await executeYouthPollCommand(userId, chatId);

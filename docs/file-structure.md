@@ -173,3 +173,4 @@ church-management-js/
 [← Назад к содержанию](README.md) | [Далее: Команды бота →](commands/README.md)
 
 
+

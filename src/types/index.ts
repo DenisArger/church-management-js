@@ -254,3 +254,32 @@ export interface SundayServiceState {
   messageId?: number; // ID of the message with inline keyboard
   waitingForTextInput?: boolean; // True when waiting for text input
 }
+
+// Schedule Form types
+export type ScheduleFormMode = "create" | "edit";
+export type ScheduleFormStep =
+  | "mode"
+  | "select_week"
+  | "preview_week"
+  | "date"
+  | "select_service"
+  | "title"
+  | "review"
+  | "completed";
+
+export interface ScheduleFormData {
+  mode?: ScheduleFormMode;
+  weekType?: "current" | "next"; // For edit mode - selected week
+  date?: Date;
+  title?: string;
+  serviceId?: string; // For edit mode
+}
+
+export interface ScheduleState {
+  userId: number;
+  chatId: number;
+  step: ScheduleFormStep;
+  data: ScheduleFormData;
+  messageId?: number; // ID of the message with inline keyboard
+  waitingForTextInput?: boolean; // True when waiting for text input
+}

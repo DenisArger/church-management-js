@@ -14,6 +14,7 @@ import {
   NotionMultiSelectOption,
   CommandResult,
   SundayServiceFormData,
+  ScheduleFormData,
 } from "../types";
 import { getNotionClient } from "./notionService";
 import { getNotionConfig } from "../config/environment";
@@ -1396,5 +1397,256 @@ export const getScriptureReaders = async (): Promise<string[]> => {
     logError("Error getting scripture readers", error);
     // Return empty array on error
     return [];
+  }
+};
+
+/**
+ * Get schedule service by ID
+ */
+export const getScheduleServiceById = async (
+  serviceId: string
+): Promise<WeeklyServiceItem | null> => {
+  try {
+    const client = getNotionClient();
+
+    logInfo("Getting schedule service by ID", { serviceId });
+
+    const page = await client.pages.retrieve({
+      page_id: serviceId,
+    });
+
+    const service = mapNotionPageToWeeklyService(page as Record<string, unknown>);
+    
+    logInfo("Schedule service found", {
+      serviceId,
+      title: service.title,
+      date: formatDateForNotion(service.date),
+    });
+
+    return service;
+  } catch (error) {
+    logError("Error getting schedule service by ID", error);
+    return null;
+  }
+};
+
+/**
+ * Get schedule services for week (without mailing filter)
+ * Used for selecting services to edit
+ */
+export const getScheduleServicesForWeek = async (
+  weekType: "current" | "next" = "next"
+): Promise<WeeklyServiceItem[]> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+    const today = new Date();
+
+    let weekStart: Date;
+    let weekEnd: Date;
+
+    if (weekType === "current") {
+      // Calculate start and end of the current week (Monday to Sunday)
+      const currentDay = today.getDay();
+      const daysToMonday = currentDay === 0 ? -6 : currentDay === 1 ? 0 : -(currentDay - 1);
+
+      weekStart = new Date(today);
+      weekStart.setDate(today.getDate() + daysToMonday);
+      weekStart.setHours(0, 0, 0, 0);
+
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Calculate start and end of the upcoming week (Monday to Sunday)
+      const currentDay = today.getDay();
+      const daysUntilMonday = currentDay === 0 ? 1 : currentDay === 1 ? 7 : 8 - currentDay;
+
+      weekStart = new Date(today);
+      weekStart.setDate(today.getDate() + daysUntilMonday);
+      weekStart.setHours(0, 0, 0, 0);
+
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+    }
+
+    logInfo("Getting schedule services for week", {
+      weekType,
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+    });
+
+    const startDateStr = formatDateForNotion(weekStart);
+    const endDateStr = formatDateForNotion(weekEnd);
+
+    const response = await client.databases.query({
+      database_id: config.generalCalendarDatabase,
+      filter: {
+        and: [
+          {
+            property: "Дата",
+            date: { on_or_after: startDateStr },
+          },
+          {
+            property: "Дата",
+            date: { on_or_before: endDateStr },
+          },
+        ],
+      },
+    });
+
+    logInfo("Notion query response for schedule services", {
+      resultsCount: response.results.length,
+    });
+
+    // Map results to WeeklyServiceItem
+    const services: WeeklyServiceItem[] = response.results.map(
+      (page: unknown) => {
+        return mapNotionPageToWeeklyService(page as Record<string, unknown>);
+      }
+    );
+
+    // Sort services by date and time
+    return services.sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      if (a.time && b.time) {
+        return a.time.localeCompare(b.time);
+      }
+      return 0;
+    });
+  } catch (error) {
+    logError("Error getting schedule services for week", error);
+    return [];
+  }
+};
+
+/**
+ * Create schedule service in Notion
+ */
+export const createScheduleService = async (
+  serviceData: ScheduleFormData
+): Promise<CommandResult> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    if (!serviceData.date || !serviceData.title) {
+      return {
+        success: false,
+        error: "Недостаточно данных для создания служения",
+      };
+    }
+
+    // Format date for Notion
+    const baseDate = serviceData.date instanceof Date 
+      ? new Date(serviceData.date)
+      : new Date(serviceData.date);
+    
+    // Set time to start of day
+    const serviceDate = new Date(baseDate);
+    serviceDate.setHours(0, 0, 0, 0);
+    
+    const dateStr = formatDateForNotion(serviceDate);
+
+    logInfo("Creating schedule service", {
+      dateStr,
+      title: serviceData.title,
+    });
+
+    // Prepare properties
+    const properties: Record<string, unknown> = {
+      "Название служения": {
+        title: [{ text: { content: serviceData.title } }],
+      },
+      Дата: {
+        date: { start: dateStr },
+      },
+      "Нужна рассылка": {
+        checkbox: false, // Default to false, can be changed later
+      },
+    };
+
+    const response = await client.pages.create({
+      parent: { database_id: config.generalCalendarDatabase },
+      properties: properties as any,
+    });
+
+    logInfo("Schedule service created", {
+      pageId: response.id,
+      date: dateStr,
+      title: serviceData.title,
+    });
+
+    return {
+      success: true,
+      message: "Служение успешно создано",
+      data: { pageId: response.id },
+    };
+  } catch (error) {
+    logError("Error creating schedule service", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Неизвестная ошибка при создании служения",
+    };
+  }
+};
+
+/**
+ * Update schedule service in Notion
+ */
+export const updateScheduleService = async (
+  serviceId: string,
+  serviceData: ScheduleFormData
+): Promise<CommandResult> => {
+  try {
+    const client = getNotionClient();
+
+    // Prepare properties to update
+    const properties: Record<string, unknown> = {};
+
+    if (serviceData.title) {
+      properties["Название служения"] = {
+        title: [{ text: { content: serviceData.title } }],
+      };
+    }
+
+    if (serviceData.date) {
+      const dateToFormat = serviceData.date instanceof Date 
+        ? serviceData.date 
+        : new Date(serviceData.date);
+      const dateStr = formatDateForNotion(dateToFormat);
+      properties["Дата"] = {
+        date: { start: dateStr },
+      };
+    }
+
+    await client.pages.update({
+      page_id: serviceId,
+      properties: properties as any,
+    });
+
+    logInfo("Schedule service updated", {
+      pageId: serviceId,
+    });
+
+    return {
+      success: true,
+      message: "Служение успешно обновлено",
+    };
+  } catch (error) {
+    logError("Error updating schedule service", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Неизвестная ошибка при обновлении служения",
+    };
   }
 };
