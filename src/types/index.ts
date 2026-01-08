@@ -15,6 +15,7 @@ export interface TelegramMessage {
   };
   text?: string;
   date: number;
+  forward_from?: TelegramUser;
 }
 
 export interface TelegramCallbackQuery {

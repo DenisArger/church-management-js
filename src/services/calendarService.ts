@@ -18,6 +18,7 @@ import {
 import { getNotionClient } from "./notionService";
 import { getNotionConfig } from "../config/environment";
 import { logInfo, logError, logWarn } from "../utils/logger";
+import { formatDateForNotion } from "../utils/dateHelper";
 
 // Constants for service types
 export const ITEM_TYPE_SUNDAY_1 = "Воскресное-1"; // I поток
@@ -126,8 +127,30 @@ const getServicesForDate = async (
   targetDate: Date
 ): Promise<SundayServiceItem[]> => {
   try {
-    const dateStr = targetDate.toISOString().split("T")[0];
-    const alternativeDateStr = targetDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format
+    const dateStr = formatDateForNotion(targetDate);
+    
+    // Create date range for the target date (start and end of day in UTC)
+    // This helps avoid timezone issues when searching
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    // Format dates for Notion API (YYYY-MM-DD format)
+    const startDateStr = formatDateForNotion(startOfDay);
+    const endDateStr = formatDateForNotion(endOfDay);
+
+    logInfo("Searching for services by date", {
+      targetDate: dateStr,
+      dateISO: targetDate.toISOString(),
+      startDateStr,
+      endDateStr,
+      localDate: {
+        year: targetDate.getFullYear(),
+        month: targetDate.getMonth() + 1,
+        day: targetDate.getDate(),
+      },
+    });
 
     // Try exact date match first
     let response = await client.databases.query({
@@ -154,15 +177,29 @@ const getServicesForDate = async (
       },
     });
 
-    // If no exact match, try alternative date formats
+    logInfo("Exact date match query result", {
+      dateStr,
+      resultsCount: response.results.length,
+      resultIds: response.results.map((r: any) => r.id),
+    });
+
+    // If no exact match, try date range search (to handle timezone differences)
     if (response.results.length === 0) {
+      logInfo("Trying date range search", {
+        startDateStr,
+        endDateStr,
+      });
+      
       response = await client.databases.query({
         database_id: databaseId,
         filter: {
           and: [
             {
               property: "Дата",
-              date: { equals: alternativeDateStr },
+              date: {
+                on_or_after: startDateStr,
+                on_or_before: endDateStr,
+              },
             },
             {
               or: [
@@ -179,6 +216,11 @@ const getServicesForDate = async (
           ],
         },
       });
+      
+      logInfo("Date range search result", {
+        resultsCount: response.results.length,
+        resultIds: response.results.map((r: any) => r.id),
+      });
     }
 
     // Remove duplicates and map to SundayServiceItem
@@ -194,7 +236,16 @@ const getServicesForDate = async (
     const services: SundayServiceItem[] = Array.from(
       uniqueResults.values()
     ).map((page: unknown) => {
-      return mapNotionPageToSundayService(page as Record<string, unknown>);
+      const mapped = mapNotionPageToSundayService(page as Record<string, unknown>);
+      // Log each mapped service for debugging
+      logInfo("Mapped service from Notion", {
+        id: mapped.id,
+        type: mapped.type,
+        date: formatDateForNotion(mapped.date),
+        dateISO: mapped.date.toISOString(),
+        rawDateFromNotion: (page as any).properties?.["Дата"]?.date?.start,
+      });
+      return mapped;
     });
 
     // Sort services by type (I поток first, then II поток) and limit to 2 services max
@@ -554,8 +605,8 @@ const getWeeklyServices = async (
   endDate: Date
 ): Promise<WeeklyServiceItem[]> => {
   try {
-    const startDateStr = startDate.toISOString().split("T")[0];
-    const endDateStr = endDate.toISOString().split("T")[0];
+    const startDateStr = formatDateForNotion(startDate);
+    const endDateStr = formatDateForNotion(endDate);
 
     logInfo("Querying Notion for weekly services", {
       databaseId,
@@ -833,8 +884,53 @@ export const createSundayService = async (
     const serviceType =
       streamType === "1" ? ITEM_TYPE_SUNDAY_1 : ITEM_TYPE_SUNDAY_2;
 
-    // Format date for Notion
-    const dateStr = new Date(serviceData.date).toISOString().split("T")[0];
+    // Format date for Notion in local time to avoid timezone issues
+    // If serviceData.date is already a Date, use it directly; otherwise create new Date
+    const baseDate = serviceData.date instanceof Date 
+      ? new Date(serviceData.date)
+      : new Date(serviceData.date);
+    
+    // Set time based on stream type: 1 поток = 10:00, 2 поток = 13:00
+    const serviceDate = new Date(baseDate);
+    if (streamType === "1") {
+      serviceDate.setHours(10, 0, 0, 0);
+    } else {
+      serviceDate.setHours(13, 0, 0, 0);
+    }
+    
+    // Format date with time for Notion API (ISO 8601 format with timezone)
+    // Notion expects format like "2026-01-18T10:00:00.000+03:00" (with timezone offset)
+    const year = serviceDate.getFullYear();
+    const month = String(serviceDate.getMonth() + 1).padStart(2, "0");
+    const day = String(serviceDate.getDate()).padStart(2, "0");
+    const hours = String(serviceDate.getHours()).padStart(2, "0");
+    const minutes = String(serviceDate.getMinutes()).padStart(2, "0");
+    const seconds = String(serviceDate.getSeconds()).padStart(2, "0");
+    
+    // Get timezone offset in format +03:00
+    const timezoneOffset = -serviceDate.getTimezoneOffset();
+    const offsetHours = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, "0");
+    const offsetMinutes = String(Math.abs(timezoneOffset) % 60).padStart(2, "0");
+    const offsetSign = timezoneOffset >= 0 ? "+" : "-";
+    const timezoneStr = `${offsetSign}${offsetHours}:${offsetMinutes}`;
+    
+    const dateWithTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000${timezoneStr}`;
+    const dateStr = formatDateForNotion(baseDate); // Keep simple format for logging
+
+    logInfo("Creating Sunday service with date and time", {
+      dateStr,
+      dateWithTime,
+      dateISO: serviceDate.toISOString(),
+      localDate: {
+        year: serviceDate.getFullYear(),
+        month: serviceDate.getMonth() + 1,
+        day: serviceDate.getDate(),
+        hours: serviceDate.getHours(),
+        minutes: serviceDate.getMinutes(),
+      },
+      streamType,
+      serviceType,
+    });
 
     // Generate title if not provided
     let serviceTitle = streamData.title;
@@ -850,7 +946,7 @@ export const createSundayService = async (
         title: [{ text: { content: serviceTitle } }],
       },
       Дата: {
-        date: { start: dateStr },
+        date: { start: dateWithTime },
       },
       "Тип служения": {
         select: { name: serviceType },
@@ -977,7 +1073,11 @@ export const updateSundayService = async (
     }
 
     if (serviceData.date) {
-      const dateStr = new Date(serviceData.date).toISOString().split("T")[0];
+      // If serviceData.date is already a Date, use it directly; otherwise create new Date
+      const dateToFormat = serviceData.date instanceof Date 
+        ? serviceData.date 
+        : new Date(serviceData.date);
+      const dateStr = formatDateForNotion(dateToFormat);
       properties["Дата"] = {
         date: { start: dateStr },
       };
@@ -1029,10 +1129,18 @@ export const updateSundayService = async (
       };
     }
 
+    // Always update scripture reader field if it's specified in updateData
+    // If it's undefined, we don't update it (to preserve existing value)
+    // If it's empty string or null, we clear it
     if (streamData.scriptureReader !== undefined) {
       if (streamData.scriptureReader) {
         properties["Чтец Писания"] = {
           select: { name: streamData.scriptureReader },
+        };
+      } else {
+        // Clear the field if empty string or null
+        properties["Чтец Писания"] = {
+          select: null,
         };
       }
     }
@@ -1076,13 +1184,36 @@ export const getSundayServiceByDate = async (
 
     const serviceType =
       streamType === "1" ? ITEM_TYPE_SUNDAY_1 : ITEM_TYPE_SUNDAY_2;
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateForNotion(date);
+
+    logInfo("Getting Sunday service by date", {
+      dateStr,
+      dateISO: date.toISOString(),
+      streamType,
+      serviceType,
+      localDate: {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+      },
+    });
 
     const services = await getServicesForDate(
       client,
       config.generalCalendarDatabase,
       date
     );
+
+    logInfo("Services found for date", {
+      dateStr,
+      servicesCount: services.length,
+      services: services.map((s) => ({
+        id: s.id,
+        type: s.type,
+        date: formatDateForNotion(s.date),
+        dateISO: s.date.toISOString(),
+      })),
+    });
 
     const service = services.find((s) => s.type === serviceType);
 
@@ -1091,11 +1222,18 @@ export const getSundayServiceByDate = async (
         serviceId: service.id,
         date: dateStr,
         streamType,
+        serviceDate: formatDateForNotion(service.date),
+        serviceDateISO: service.date.toISOString(),
       });
       return service;
     }
 
-    logInfo("Sunday service not found", { date: dateStr, streamType });
+    logInfo("Sunday service not found", {
+      date: dateStr,
+      streamType,
+      serviceType,
+      availableServices: services.map((s) => s.type),
+    });
     return null;
   } catch (error) {
     logError("Error getting Sunday service by date", error);
