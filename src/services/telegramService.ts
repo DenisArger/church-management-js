@@ -166,3 +166,30 @@ export const sendPhoto = async (
     };
   }
 };
+
+export const answerCallbackQuery = async (
+  callbackQueryId: string,
+  text?: string,
+  showAlert?: boolean
+): Promise<CommandResult> => {
+  try {
+    const bot = getTelegramBot();
+    await bot.answerCallbackQuery(callbackQueryId, {
+      text,
+      show_alert: showAlert,
+    });
+
+    logInfo(`Callback query answered`, { callbackQueryId });
+
+    return {
+      success: true,
+      message: "Callback query answered successfully",
+    };
+  } catch (error) {
+    logError("Error answering callback query", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};

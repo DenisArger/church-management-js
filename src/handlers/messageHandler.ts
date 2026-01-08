@@ -10,12 +10,31 @@ import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
 import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
 import { executeYouthPollCommand } from "../commands/youthPollCommand";
+import { executeShowMenuCommand } from "../commands/showMenuCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
-import { sendMessage } from "../services/telegramService";
+import { sendMessage, answerCallbackQuery } from "../services/telegramService";
+import { parseCallbackData } from "../utils/menuBuilder";
 
+export const handleUpdate = async (
+  update: TelegramUpdate
+): Promise<CommandResult> => {
+  // Handle callback_query (inline button clicks)
+  if (update.callback_query) {
+    return await handleCallbackQuery(update.callback_query);
+  }
+
+  // Handle regular messages
+  if (update.message) {
+    return await handleMessage(update);
+  }
+
+  return { success: false, error: "No message or callback_query in update" };
+};
+
+// Keep old function name for backward compatibility
 export const handleMessage = async (
   update: TelegramUpdate
 ): Promise<CommandResult> => {
@@ -101,6 +120,9 @@ export const handleMessage = async (
     case "/youth_poll":
       return await executeYouthPollCommand(userId, chatId);
 
+    case "/menu":
+      return await executeShowMenuCommand(userId, chatId);
+
     default:
       // Check if it's a prayer request (only in private chats)
       if (chatType === "private" && isPrayerRequest(text)) {
@@ -154,4 +176,88 @@ const handlePrayerNeed = async (
       error: "Произошла ошибка при обработке молитвенной нужды",
     };
   }
+};
+
+const handleCallbackQuery = async (
+  callbackQuery: TelegramUpdate["callback_query"]
+): Promise<CommandResult> => {
+  if (!callbackQuery || !callbackQuery.data) {
+    return { success: false, error: "No callback data" };
+  }
+
+  const userId = callbackQuery.from.id;
+  const chatId = callbackQuery.message?.chat.id || userId;
+  const callbackData = callbackQuery.data;
+  const callbackQueryId = callbackQuery.id;
+
+  logInfo("Processing callback query", {
+    userId,
+    chatId,
+    callbackData,
+  });
+
+  // Check authorization
+  if (!isUserAuthorized(userId)) {
+    await answerCallbackQuery(callbackQueryId, "У вас нет доступа к этой команде", true);
+    return { success: false, error: "Unauthorized" };
+  }
+
+  // Parse callback data
+  const parsed = parseCallbackData(callbackData);
+
+  if (parsed.type === "menu") {
+    // Show main menu
+    await answerCallbackQuery(callbackQueryId);
+    return await executeShowMenuCommand(userId, chatId);
+  }
+
+  if (parsed.type === "cmd" && parsed.command) {
+    // Answer callback query first
+    await answerCallbackQuery(callbackQueryId);
+
+    // Execute corresponding command
+    const params = parsed.params || [];
+    switch (parsed.command) {
+      case "request_pray":
+        return await executePrayerRequestCommand(userId, chatId, params);
+
+      case "daily_scripture":
+        return await executeDailyScriptureCommand(userId, chatId);
+
+      case "create_poll":
+        return await executeCreatePollCommand(userId, chatId);
+
+      case "add_prayer":
+        return await executeAddPrayerCommand(userId, chatId, params);
+
+      case "prayer_week":
+        return await executePrayerWeekCommand(userId, chatId);
+
+      case "weekly_schedule":
+        return await executeWeeklyScheduleCommand(userId, chatId);
+
+      case "request_state_sunday":
+        return await executeRequestStateSundayCommand(userId, chatId);
+
+      case "youth_poll":
+        return await executeYouthPollCommand(userId, chatId);
+
+      case "test_notion":
+        return await executeTestNotionCommand(userId, chatId);
+
+      case "debug_calendar":
+        return await executeDebugCalendarCommand(userId, chatId);
+
+      default:
+        logWarn("Unknown command in callback", { command: parsed.command });
+        return {
+          success: false,
+          error: `Неизвестная команда: ${parsed.command}`,
+        };
+    }
+  }
+
+  logWarn("Unknown callback data format", { callbackData });
+  await answerCallbackQuery(callbackQueryId, "Неизвестная команда", true);
+  return { success: false, error: "Unknown callback data format" };
 };

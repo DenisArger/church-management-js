@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions";
-import { handleMessage } from "../../src/handlers/messageHandler";
+import { handleUpdate } from "../../src/handlers/messageHandler";
 import { validateEnvironment } from "../../src/config/environment";
 import { logInfo, logError } from "../../src/utils/logger";
 
@@ -41,14 +41,15 @@ export const handler: Handler = async (event) => {
     logInfo("Received webhook update", {
       updateId: update.update_id,
       hasMessage: !!update.message,
+      hasCallbackQuery: !!update.callback_query,
     });
 
-    const result = await handleMessage(update);
+    const result = await handleUpdate(update);
 
     if (result.success) {
-      logInfo("Message processed successfully", { result });
+      logInfo("Update processed successfully", { result });
     } else {
-      logError("Message processing failed", { error: result.error });
+      logError("Update processing failed", { error: result.error });
     }
 
     return {
