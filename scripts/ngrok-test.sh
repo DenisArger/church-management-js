@@ -50,9 +50,18 @@ check_requirements() {
         missing_requirements+=("Yarn")
     fi
     
-    # Check Netlify CLI
-    if ! command_exists netlify; then
-        missing_requirements+=("Netlify CLI")
+    # Check Netlify CLI (try netlify, npx netlify, or yarn netlify)
+    NETLIFY_CMD=""
+    if command_exists netlify; then
+        NETLIFY_CMD="netlify"
+    elif command_exists npx; then
+        NETLIFY_CMD="npx netlify"
+    elif command_exists yarn; then
+        NETLIFY_CMD="yarn netlify"
+    fi
+    
+    if [ -z "$NETLIFY_CMD" ]; then
+        missing_requirements+=("Netlify CLI (install via: yarn add -D netlify-cli)")
     fi
     
     # Check ngrok
@@ -154,8 +163,24 @@ build_project() {
 start_netlify_dev() {
     print_status "Starting Netlify development server..."
     
+    # Determine netlify command
+    if [ -z "$NETLIFY_CMD" ]; then
+        if command_exists netlify; then
+            NETLIFY_CMD="netlify"
+        elif command_exists npx; then
+            NETLIFY_CMD="npx netlify"
+        elif command_exists yarn; then
+            NETLIFY_CMD="yarn netlify"
+        else
+            print_error "Netlify CLI not found"
+            exit 1
+        fi
+    fi
+    
+    print_status "Using Netlify command: $NETLIFY_CMD"
+    
     # Start netlify dev in background and disown it
-    nohup netlify dev --port 8888 > .netlify-dev.log 2>&1 &
+    nohup $NETLIFY_CMD dev --port 8888 > .netlify-dev.log 2>&1 &
     NETLIFY_PID=$!
     
     # Wait for server to start

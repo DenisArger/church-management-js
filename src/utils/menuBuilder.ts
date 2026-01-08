@@ -32,7 +32,7 @@ export function buildMainMenu(): InlineKeyboardMarkup {
 
   // Schedule category
   buttons.push([
-    { text: "📆 Неделя", callback_data: "cmd:weekly_schedule" },
+    { text: "📆 Расписание", callback_data: "cmd:weekly_schedule:select" },
     { text: "⛪ Воскресенье", callback_data: "cmd:request_state_sunday" },
   ]);
   buttons.push([

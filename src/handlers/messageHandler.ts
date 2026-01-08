@@ -645,6 +645,14 @@ const handleCallbackQuery = async (
         return await executePrayerWeekCommand(userId, chatId);
 
       case "weekly_schedule":
+        // Handle weekly schedule with optional week type parameter
+        if (params.length > 0) {
+          const weekType = params[0] as "current" | "next";
+          if (weekType === "current" || weekType === "next") {
+            return await executeWeeklyScheduleCommand(userId, chatId, weekType);
+          }
+        }
+        // If no parameter or invalid parameter, show selection menu
         return await executeWeeklyScheduleCommand(userId, chatId);
 
       case "request_state_sunday":

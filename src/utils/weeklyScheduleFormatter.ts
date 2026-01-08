@@ -1,6 +1,7 @@
 import { WeeklyScheduleInfo } from "../types";
 import { logInfo } from "./logger";
 import { getRandomBlessing, formatBlessing } from "./blessingGenerator";
+import { formatDateForNotion } from "./dateHelper";
 
 /**
  * Format weekly schedule information for display
@@ -10,7 +11,13 @@ export const formatWeeklyScheduleMessage = (
   scheduleInfo: WeeklyScheduleInfo | null
 ): string => {
   if (!scheduleInfo || scheduleInfo.services.length === 0) {
-    return `🌟 <b>Расписание служений</b> 🌟\n💥<b>Предстоящая неделя</b> 💥\n\n📅 К сожалению, на эту неделю не запланировано служений для рассылки.\n\n🙌 Благословенной недели! 🙏\n#расписаниеслужений`;
+    const { startDate, endDate } = scheduleInfo || {};
+    if (startDate && endDate) {
+      const startDateStr = formatDate(startDate);
+      const endDateStr = formatDate(endDate);
+      return `🌟 <b>Расписание служений</b> 🌟\n💥<b>Неделя с ${startDateStr} по ${endDateStr}</b> 💥\n\n📅 К сожалению, на эту неделю не запланировано служений для рассылки.\n\n🙌 Благословенной недели! 🙏\n#расписаниеслужений`;
+    }
+    return `🌟 <b>Расписание служений</b> 🌟\n💥<b>Неделя</b> 💥\n\n📅 К сожалению, на эту неделю не запланировано служений для рассылки.\n\n🙌 Благословенной недели! 🙏\n#расписаниеслужений`;
   }
 
   const { startDate, endDate, services } = scheduleInfo;
@@ -30,19 +37,30 @@ export const formatWeeklyScheduleMessage = (
   // Group services by date
   const servicesByDate = groupServicesByDate(services);
 
-  // Format each day
-  for (const [dateStr, dayServices] of servicesByDate) {
-    const date = new Date(dateStr);
-    const dayName = getDayName(date);
-    const formattedDate = formatDate(date);
+  // Generate all days of the week (Monday to Sunday)
+  const allDaysOfWeek = getAllDaysOfWeek(startDate, endDate);
 
-    message += `<b>${dayName}, ${formattedDate}</b>\n`;
+  // Format each day of the week
+  for (const dayDate of allDaysOfWeek) {
+    // Use local date format to match with service dates
+    const dateStr = formatDateForNotion(dayDate);
+    const dayName = getDayName(dayDate);
+    const formattedDate = formatDate(dayDate);
+    const dayServices = servicesByDate.get(dateStr) || [];
 
-    for (const service of dayServices) {
-      message += formatService(service);
+    // Show day if it has services, or if it's Monday (first day of week)
+    // This ensures Monday is always shown even without services
+    if (dayServices.length > 0 || dayDate.getDay() === 1) {
+      message += `<b>${dayName}, ${formattedDate}</b>\n`;
+
+      if (dayServices.length > 0) {
+        for (const service of dayServices) {
+          message += formatService(service);
+        }
+      }
+
+      message += "\n";
     }
-
-    message += "\n";
   }
 
   // Add random blessing and hashtag
@@ -84,13 +102,14 @@ const formatService = (service: any): string => {
 };
 
 /**
- * Group services by date
+ * Group services by date (using local time to avoid timezone issues)
  */
 const groupServicesByDate = (services: any[]): Map<string, any[]> => {
   const grouped = new Map<string, any[]>();
 
   for (const service of services) {
-    const dateStr = service.date.toISOString().split("T")[0];
+    // Use local date format to match with day dates
+    const dateStr = formatDateForNotion(service.date);
 
     if (!grouped.has(dateStr)) {
       grouped.set(dateStr, []);
@@ -100,6 +119,24 @@ const groupServicesByDate = (services: any[]): Map<string, any[]> => {
   }
 
   return grouped;
+};
+
+/**
+ * Get all days of the week from Monday to Sunday
+ */
+const getAllDaysOfWeek = (startDate: Date, endDate: Date): Date[] => {
+  const days: Date[] = [];
+  const currentDate = new Date(startDate);
+  
+  // Ensure we start from the beginning of the day
+  currentDate.setHours(0, 0, 0, 0);
+  
+  while (currentDate <= endDate) {
+    days.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return days;
 };
 
 /**

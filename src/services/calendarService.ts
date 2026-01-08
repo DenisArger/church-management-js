@@ -540,29 +540,55 @@ export const formatServiceInfo = (serviceInfo: SundayServiceInfo): string => {
 
 /**
  * Get weekly schedule with services that need mailing
- * Returns services for the upcoming week with mailing flag enabled
+ * Returns services for the specified week (current or next) with mailing flag enabled
+ * @param weekType - "current" for current week, "next" for next week
  */
 export const getWeeklySchedule =
-  async (): Promise<WeeklyScheduleInfo | null> => {
+  async (weekType: "current" | "next" = "next"): Promise<WeeklyScheduleInfo | null> => {
     try {
       const client = getNotionClient();
       const config = getNotionConfig();
       const today = new Date();
 
-      // Calculate start and end of the week (Monday to Sunday)
-      const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      const daysUntilMonday =
-        currentDay === 0 ? 1 : currentDay === 1 ? 0 : 8 - currentDay;
+      let weekStart: Date;
+      let weekEnd: Date;
 
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() + daysUntilMonday);
-      weekStart.setHours(0, 0, 0, 0);
+      if (weekType === "current") {
+        // Calculate start and end of the current week (Monday to Sunday)
+        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        // Calculate days to Monday of current week
+        // If Sunday (0), go back 6 days to get Monday
+        // If Monday (1), no change (0 days)
+        // For other days, go back (currentDay - 1) days
+        const daysToMonday = currentDay === 0 ? -6 : currentDay === 1 ? 0 : -(currentDay - 1);
 
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
+        weekStart = new Date(today);
+        weekStart.setDate(today.getDate() + daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
+
+        weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+      } else {
+        // Calculate start and end of the upcoming week (Monday to Sunday)
+        // Get Monday of the next week (upcoming week)
+        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        // For Sunday, next Monday is tomorrow (+1 day)
+        // For Monday, next Monday is in 7 days (+7 days)
+        // For other days, calculate days until next Monday
+        const daysUntilMonday = currentDay === 0 ? 1 : currentDay === 1 ? 7 : 8 - currentDay;
+
+        weekStart = new Date(today);
+        weekStart.setDate(today.getDate() + daysUntilMonday);
+        weekStart.setHours(0, 0, 0, 0);
+
+        weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+      }
 
       logInfo("Getting weekly schedule", {
+        weekType,
         weekStart: weekStart.toISOString(),
         weekEnd: weekEnd.toISOString(),
       });
