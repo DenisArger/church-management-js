@@ -26,7 +26,28 @@ NOTION_WEEKLY_PRAYER_DATABASE=your_weekly_prayer_database_id_here
 ALLOWED_USERS=282850458,123456789
 ```
 
-### 3. Деплой в Netlify
+### 3. Настройка на продакшен
+
+**Важно**: Перед деплоем в продакшен настройте окружение:
+
+```bash
+# Автоматическая настройка для продакшена
+yarn setup:production
+
+# Или вручную
+./scripts/setup-production.sh
+```
+
+Этот скрипт установит:
+- `NODE_ENV=production`
+- `DEBUG=false`
+- Правильный уровень логирования
+
+**Не забудьте**: После настройки локального `.env` файла, нужно также установить переменные окружения в Netlify Dashboard (Site settings > Environment variables).
+
+Подробнее: [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md)
+
+### 4. Деплой в Netlify
 
 ```bash
 # Полный деплой с настройкой webhook
@@ -36,7 +57,7 @@ yarn deploy:full
 ./scripts/deploy.sh
 ```
 
-### 4. Проверка webhook
+### 5. Проверка webhook
 
 ```bash
 # Проверить статус webhook
@@ -52,6 +73,7 @@ yarn webhook:info
 
 ```bash
 yarn setup              # Настройка окружения
+yarn setup:production   # Настройка на продакшен
 yarn deploy:full        # Полный деплой
 yarn webhook:set        # Настроить webhook
 yarn webhook:info       # Информация о webhook
@@ -153,6 +175,7 @@ yarn build
 ```
 scripts/
 ├── setup.sh              # Настройка окружения
+├── setup-production.sh   # Настройка на продакшен
 ├── deploy.sh              # Деплой в Netlify
 ├── webhook-manager.sh     # Управление webhook
 └── README.md             # Подробная документация

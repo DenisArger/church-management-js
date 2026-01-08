@@ -10,6 +10,7 @@
     "deploy": "yarn build && netlify deploy --prod",
     "deploy:full": "./scripts/deploy.sh",
     "setup": "./scripts/setup.sh",
+    "setup:production": "./scripts/setup-production.sh",
     "webhook:set": "./scripts/webhook-manager.sh set-file",
     "webhook:set-ngrok": "./scripts/webhook-manager.sh set-ngrok-file",
     "webhook:info": "./scripts/webhook-manager.sh info",

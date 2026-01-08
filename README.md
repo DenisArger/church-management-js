@@ -49,9 +49,25 @@ yarn dev
 yarn netlify:dev
 ```
 
-### 5. Сборка и деплой
+### 5. Настройка на продакшен
 
 ```bash
+# Автоматическая настройка для продакшена
+yarn setup:production
+
+# Или вручную
+./scripts/setup-production.sh
+```
+
+Подробнее: [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md)
+
+### 6. Сборка и деплой
+
+```bash
+# Полный деплой с настройкой webhook
+yarn deploy:full
+
+# Или вручную
 yarn build
 yarn deploy
 ```

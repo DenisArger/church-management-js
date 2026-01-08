@@ -106,20 +106,50 @@ deploy_to_netlify() {
         netlify login
     fi
 
-    # Deploy to production
-    netlify deploy --prod --dir=dist --functions=netlify/functions
+    # Deploy to production and capture output
+    DEPLOY_OUTPUT=$(netlify deploy --prod --dir=dist --functions=netlify/functions 2>&1)
+    DEPLOY_EXIT_CODE=$?
     
-    if [ $? -eq 0 ]; then
+    if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
         print_success "Deployment completed successfully"
         
-        # Get the deployed URL
-        DEPLOYED_URL=$(netlify status --json | grep -o '"url":"[^"]*"' | head -1 | cut -d'"' -f4)
+        # Try to extract URL from deploy output (multiple patterns)
+        DEPLOYED_URL=$(echo "$DEPLOY_OUTPUT" | grep -iE "(Website URL|Site url):" | sed -n 's/.*[Uu]RL:[[:space:]]*\(https\?:\/\/[^[:space:]]*\).*/\1/p' | head -1)
+        
+        # If not found in deploy output, try netlify status
+        if [ -z "$DEPLOYED_URL" ]; then
+            print_status "Trying to get URL from netlify status..."
+            if command_exists jq; then
+                # Use jq if available for better JSON parsing
+                DEPLOYED_URL=$(netlify status --json 2>/dev/null | jq -r '.site.url // empty' 2>/dev/null)
+            else
+                # Fallback to grep parsing
+                STATUS_OUTPUT=$(netlify status 2>&1)
+                DEPLOYED_URL=$(echo "$STATUS_OUTPUT" | grep -iE "(Site url|Website URL):" | sed -n 's/.*[Uu]RL:[[:space:]]*\(https\?:\/\/[^[:space:]]*\).*/\1/p' | head -1)
+            fi
+        fi
+        
+        # If still not found, try to get from netlify.toml or use default pattern
+        if [ -z "$DEPLOYED_URL" ]; then
+            print_warning "Could not extract URL automatically, trying alternative methods..."
+            # Try to get site name from netlify status
+            SITE_NAME=$(netlify status --json 2>/dev/null | grep -o '"siteName":"[^"]*"' | head -1 | cut -d'"' -f4)
+            if [ -n "$SITE_NAME" ]; then
+                DEPLOYED_URL="https://${SITE_NAME}.netlify.app"
+            fi
+        fi
+        
         if [ -n "$DEPLOYED_URL" ]; then
             print_success "Deployed URL: $DEPLOYED_URL"
             echo "$DEPLOYED_URL" > .netlify-url
+        else
+            print_warning "Could not determine deployed URL automatically"
+            print_status "Please set webhook manually using: yarn webhook:set"
+            print_status "Or set the URL in .netlify-url file manually"
         fi
     else
         print_error "Deployment failed"
+        echo "$DEPLOY_OUTPUT"
         exit 1
     fi
 }
