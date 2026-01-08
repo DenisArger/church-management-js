@@ -9,3 +9,10 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Scheduled function for automatic youth poll creation
+# Runs daily at 18:00 UTC (21:00 Moscow time)
+[functions.scheduler]
+  schedule = "0 18 * * *"
+  function = "youth-poll-scheduler"
+

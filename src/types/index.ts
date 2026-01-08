@@ -51,6 +51,7 @@ export interface CalendarItem {
   title: string;
   date: Date;
   description?: string;
+  theme?: string;
   type: "service" | "meeting" | "event";
 }
 

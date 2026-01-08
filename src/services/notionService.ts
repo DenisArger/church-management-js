@@ -425,3 +425,150 @@ export const createWeeklyPrayerRecord = async (
     };
   }
 };
+
+export const getYouthEventForTomorrow =
+  async (): Promise<CalendarItem | null> => {
+    try {
+      const client = getNotionClient();
+      const config = getNotionConfig();
+
+      // Calculate tomorrow's date
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+      logInfo("Searching for youth event tomorrow", {
+        tomorrowDate: tomorrowStr,
+      });
+
+      const response = await client.databases.query({
+        database_id: config.generalCalendarDatabase,
+        filter: {
+          and: [
+            {
+              property: "Дата",
+              date: { equals: tomorrowStr },
+            },
+            {
+              property: "Тип служения",
+              select: { equals: "Молодежное" },
+            },
+          ],
+        },
+      });
+
+      if (response.results.length === 0) {
+        logInfo("No youth event found for tomorrow");
+        return null;
+      }
+
+      const page = response.results[0] as Record<string, unknown>;
+      const properties = page.properties as Record<string, unknown>;
+
+      // Debug: Log all available properties
+      logInfo("Available properties in Notion page", {
+        propertyNames: Object.keys(properties),
+        properties: properties,
+      });
+
+      const titleProp = properties["Название служения"] as NotionTitle;
+      const dateProp = properties["Дата"] as NotionDate;
+      const descriptionProp = properties["Описание"] as NotionRichText;
+
+      // Try different possible field names for theme
+      const possibleThemeFields = [
+        "Тема",
+        "Topic",
+        "Тема служения",
+        "Service Theme",
+        "Тема встречи",
+        "Meeting Theme",
+        "Содержание",
+        "Content",
+        "Тематика",
+        "Subject",
+        "Информация о служении", // Use existing field from Notion
+        "Примечание", // Use existing field from Notion
+      ];
+
+      let themeValue = "";
+      let themeFieldName = "";
+
+      for (const fieldName of possibleThemeFields) {
+        const themeProp = properties[fieldName] as NotionRichText;
+        if (
+          themeProp?.rich_text?.[0]?.text?.content &&
+          themeProp.rich_text[0].text.content.trim()
+        ) {
+          themeValue = themeProp.rich_text[0].text.content.trim();
+          themeFieldName = fieldName;
+          logInfo(`Found theme in field: ${fieldName}`, { theme: themeValue });
+          break;
+        }
+      }
+
+      // If no theme found in dedicated fields, try to extract from description
+      if (!themeValue && descriptionProp?.rich_text?.[0]?.text?.content) {
+        const description = descriptionProp.rich_text[0].text.content;
+
+        // Look for theme patterns in description
+        const themePatterns = [
+          /Тема:\s*(.+)/i,
+          /тема:\s*(.+)/i,
+          /Theme:\s*(.+)/i,
+          /["']([^"']+)["']/, // Theme in quotes
+        ];
+
+        for (const pattern of themePatterns) {
+          const match = description.match(pattern);
+          if (match) {
+            themeValue = match[1].trim();
+            themeFieldName = "Описание (extracted)";
+            logInfo(`Extracted theme from description`, { theme: themeValue });
+            break;
+          }
+        }
+      }
+
+      // Debug: Log theme field specifically
+      logInfo("Theme field debug", {
+        themeFieldName,
+        themeValue,
+        checkedFields: possibleThemeFields,
+        descriptionContent: descriptionProp?.rich_text?.[0]?.text?.content,
+      });
+
+      const youthEvent: CalendarItem = {
+        id: page.id as string,
+        title: titleProp?.title?.[0]?.text?.content || "",
+        date: new Date(
+          (dateProp?.date?.start as string) || (page.created_time as string)
+        ),
+        description: descriptionProp?.rich_text?.[0]?.text?.content,
+        theme: themeValue,
+        type: "event" as const,
+      };
+
+      logInfo("Youth event found for tomorrow", {
+        eventId: youthEvent.id,
+        title: youthEvent.title,
+        description: youthEvent.description,
+        theme: youthEvent.theme,
+        date: youthEvent.date.toISOString(),
+        type: youthEvent.type,
+      });
+
+      logInfo("Final youth event data for poll", {
+        title: youthEvent.title,
+        description: youthEvent.description,
+        theme: youthEvent.theme,
+        hasTheme: !!youthEvent.theme,
+        themeLength: youthEvent.theme?.length || 0,
+      });
+
+      return youthEvent;
+    } catch (error) {
+      logError("Error getting youth event for tomorrow", error);
+      return null;
+    }
+  };

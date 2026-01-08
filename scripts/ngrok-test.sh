@@ -56,7 +56,16 @@ check_requirements() {
     fi
     
     # Check ngrok
-    if ! command_exists ngrok; then
+    NGROK_PATH=""
+    # Try different possible paths for ngrok
+    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok"; do
+        if [ -f "$path" ] || command_exists ngrok; then
+            NGROK_PATH="$path"
+            break
+        fi
+    done
+    
+    if [ -z "$NGROK_PATH" ] && ! command_exists ngrok; then
         missing_requirements+=("ngrok")
     fi
     
@@ -167,8 +176,29 @@ start_netlify_dev() {
 start_ngrok() {
     print_status "Starting ngrok tunnel..."
     
+    # Determine ngrok command
+    NGROK_CMD=""
+    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok"; do
+        if [ -f "$path" ]; then
+            NGROK_CMD="$path"
+            break
+        fi
+    done
+    
+    # If no path found, try using ngrok from PATH
+    if [ -z "$NGROK_CMD" ] && command_exists ngrok; then
+        NGROK_CMD="ngrok"
+    fi
+    
+    if [ -z "$NGROK_CMD" ]; then
+        print_error "ngrok not found. Please install ngrok first."
+        exit 1
+    fi
+    
+    print_status "Using ngrok: $NGROK_CMD"
+    
     # Start ngrok tunnel in background
-    "/c/ProgramData/chocolatey/bin/ngrok.exe" http 8888 --log=stdout > .ngrok.log 2>&1 &
+    "$NGROK_CMD" http 8888 --log=stdout > .ngrok.log 2>&1 &
     NGROK_PID=$!
     
     # Wait for ngrok to start

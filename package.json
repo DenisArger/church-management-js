@@ -27,7 +27,9 @@
     "test:ngrok:restart": "./scripts/ngrok-test.sh restart",
     "test:ngrok:status": "./scripts/ngrok-test.sh status",
     "test:ngrok:test": "./scripts/ngrok-test.sh test",
-    "test:ngrok:webhook-info": "./scripts/ngrok-test.sh webhook-info"
+    "test:ngrok:webhook-info": "./scripts/ngrok-test.sh webhook-info",
+    "debug:server": "ts-node debug-server.ts",
+    "debug:server:build": "yarn build && node dist/debug-server.js"
   },
   "keywords": [
     "telegram",

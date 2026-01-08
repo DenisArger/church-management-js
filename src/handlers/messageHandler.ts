@@ -9,6 +9,7 @@ import { executeHelpCommand } from "../commands/helpCommand";
 import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
 import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
+import { executeYouthPollCommand } from "../commands/youthPollCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
@@ -96,6 +97,9 @@ export const handleMessage = async (
 
     case "/prayer_week":
       return await executePrayerWeekCommand(userId, chatId);
+
+    case "/youth_poll":
+      return await executeYouthPollCommand(userId, chatId);
 
     default:
       // Check if it's a prayer request (only in private chats)

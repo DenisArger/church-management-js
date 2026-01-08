@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { sendPoll } from "../services/telegramService";
+import { sendPoll, getTelegramBot } from "../services/telegramService";
 import { logInfo } from "../utils/logger";
 
 export const executeCreatePollCommand = async (
@@ -11,7 +11,8 @@ export const executeCreatePollCommand = async (
   const question = "Приходите ли вы на молодежную встречу?";
   const options = ["Да, приду", "Нет, не смогу", "Пока не знаю"];
 
-  const result = await sendPoll(chatId, question, options);
+  const bot = getTelegramBot();
+  const result = await sendPoll(bot, chatId, question, options);
 
   if (result.success) {
     logInfo("Poll created successfully", { userId, chatId });

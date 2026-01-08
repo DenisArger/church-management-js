@@ -18,6 +18,7 @@ export const executeHelpCommand = async (
 • <code>/add_prayer</code> - Добавить молитвенную запись на неделю
 • <code>/daily_scripture</code> - Получить ежедневное писание
 • <code>/create_poll</code> - Создать опрос
+• <code>/youth_poll</code> - Создать опрос о молодежном служении
 • <code>/request_state_sunday</code> - Информация о воскресном служении
 • <code>/weekly_schedule</code> - Расписание служений на предстоящую неделю
 • <code>/prayer_week</code> - Информация о молитвах на следующую неделю

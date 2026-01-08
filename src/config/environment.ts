@@ -25,6 +25,10 @@ export const getTelegramConfig = () => {
     mainChannelId: process.env.TELEGRAM_MAIN_CHANNEL_ID,
     mainGroupId: process.env.TELEGRAM_MAIN_GROUP_ID,
     youthGroupId: process.env.TELEGRAM_YOUTH_GROUP_ID,
+    // Debug configuration for testing
+    debugBotToken: process.env.TELEGRAM_BOT_TOKEN_DEBUG,
+    debugChatId: process.env.TELEGRAM_CHAT_ID_DEBUG,
+    debugTopicId: process.env.TELEGRAM_TOPIC_ID_DEBUG,
   };
 };
 
