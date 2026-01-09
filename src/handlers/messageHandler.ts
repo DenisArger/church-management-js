@@ -32,7 +32,7 @@ import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
-import { parseCallbackData, buildPrayerMenu, buildScheduleMenu } from "../utils/menuBuilder";
+import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
 import {
   hasActiveState,
   getUserState,
@@ -697,6 +697,20 @@ const handleCallbackQuery = async (
       return await sendMessage(chatId, scheduleMenuMessage, {
         parse_mode: "HTML",
         reply_markup: scheduleMenu,
+      });
+    }
+    
+    if (parsed.command === "sunday") {
+      // Show Sunday service submenu
+      const sundayMenuMessage = `
+⛪ <b>Готовность к воскресному служению</b>
+
+Выберите нужную команду:
+`;
+      const sundayMenu = buildSundayMenu();
+      return await sendMessage(chatId, sundayMenuMessage, {
+        parse_mode: "HTML",
+        reply_markup: sundayMenu,
       });
     }
     

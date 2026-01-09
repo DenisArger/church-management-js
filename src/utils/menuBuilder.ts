@@ -31,10 +31,7 @@ export function buildMainMenu(): InlineKeyboardMarkup {
   // Schedule category
   buttons.push([
     { text: "📆 Расписание", callback_data: "menu:schedule" },
-    { text: "⛪ Воскресенье", callback_data: "cmd:request_state_sunday" },
-  ]);
-  buttons.push([
-    { text: "✏️ Заполнить воскресное", callback_data: "cmd:fill_sunday_service" },
+    { text: "⛪ Готовность к воскресному служению", callback_data: "menu:sunday" },
   ]);
 
   // Service category
@@ -96,6 +93,31 @@ export function buildScheduleMenu(): InlineKeyboardMarkup {
 
   buttons.push([
     { text: "📝 Редактировать расписание", callback_data: "cmd:edit_schedule" },
+  ]);
+
+  // Back button
+  buttons.push([
+    { text: "⬅️ Назад", callback_data: "menu:main" },
+  ]);
+
+  return {
+    inline_keyboard: buttons,
+  };
+}
+
+/**
+ * Builds Sunday service submenu with Sunday service-related commands
+ */
+export function buildSundayMenu(): InlineKeyboardMarkup {
+  const buttons: InlineKeyboardButton[][] = [];
+
+  // Sunday service commands
+  buttons.push([
+    { text: "📊 Текущее состояние", callback_data: "cmd:request_state_sunday" },
+  ]);
+
+  buttons.push([
+    { text: "✏️ Редактировать", callback_data: "cmd:fill_sunday_service" },
   ]);
 
   // Back button
