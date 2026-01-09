@@ -298,6 +298,95 @@ const handlePersonSelection = async (
 };
 
 /**
+ * Normalize person name for comparison
+ * Removes extra spaces and trims the string
+ */
+const normalizePersonName = (name: string): string => {
+  return name.trim().replace(/\s+/g, " ");
+};
+
+/**
+ * Compare dates by date only (ignoring time)
+ * Returns true if dates are on the same day
+ */
+const isSameDate = (date1: Date, date2: Date): boolean => {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
+
+/**
+ * Check if date is within date range (by date only, ignoring time)
+ */
+const isDateInRange = (date: Date, startDate: Date, endDate: Date): boolean => {
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  return dateOnly >= startOnly && dateOnly <= endOnly;
+};
+
+/**
+ * Get last topic from reference week (for any person)
+ * If weekType is "next", returns topic from current week
+ * If weekType is "current", returns topic from previous week
+ */
+const getLastReferenceWeekTopic = async (
+  weekType: "current" | "next"
+): Promise<string | null> => {
+  try {
+    const records = await getWeeklyPrayerRecords();
+    const now = new Date();
+    const currentDay = now.getDay();
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() + mondayOffset);
+    currentMonday.setHours(0, 0, 0, 0);
+    
+    let referenceWeekStart: Date;
+    let referenceWeekEnd: Date;
+    
+    if (weekType === "next") {
+      // For next week, use current week as reference
+      referenceWeekStart = new Date(currentMonday);
+      referenceWeekStart.setHours(0, 0, 0, 0);
+      referenceWeekEnd = new Date(currentMonday);
+      referenceWeekEnd.setDate(currentMonday.getDate() + 6);
+      referenceWeekEnd.setHours(23, 59, 59, 999);
+    } else {
+      // For current week, use previous week as reference
+      referenceWeekStart = new Date(currentMonday);
+      referenceWeekStart.setDate(currentMonday.getDate() - 7);
+      referenceWeekStart.setHours(0, 0, 0, 0);
+      referenceWeekEnd = new Date(referenceWeekStart);
+      referenceWeekEnd.setDate(referenceWeekStart.getDate() + 6);
+      referenceWeekEnd.setHours(23, 59, 59, 999);
+    }
+    
+    // Filter records for reference week (any person)
+    const referenceWeekRecords = records.filter((record) => {
+      // Compare dates by date only (ignoring time) to avoid timezone issues
+      return isDateInRange(record.dateStart, referenceWeekStart, referenceWeekEnd);
+    });
+    
+    if (referenceWeekRecords.length === 0) {
+      return null;
+    }
+    
+    // Sort by date (newest first) and return the last topic
+    const sortedRecords = referenceWeekRecords.sort(
+      (a, b) => b.dateStart.getTime() - a.dateStart.getTime()
+    );
+    
+    return sortedRecords[0].topic;
+  } catch (error) {
+    logError("Error getting last reference week topic", error);
+    return null;
+  }
+};
+
+/**
  * Get previous week's topics for a person
  */
 const getPreviousWeekTopics = async (
@@ -315,15 +404,22 @@ const getPreviousWeekTopics = async (
     // Calculate previous week (last week)
     const previousWeekStart = new Date(currentMonday);
     previousWeekStart.setDate(currentMonday.getDate() - 7);
+    previousWeekStart.setHours(0, 0, 0, 0);
     const previousWeekEnd = new Date(previousWeekStart);
     previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
     previousWeekEnd.setHours(23, 59, 59, 999);
     
+    // Normalize person name for comparison
+    const normalizedPersonName = normalizePersonName(personName);
+    
     // Filter records for this person in previous week
     const previousWeekRecords = records.filter((record) => {
-      if (record.person !== personName) return false;
-      const recordStart = new Date(record.dateStart);
-      return recordStart >= previousWeekStart && recordStart <= previousWeekEnd;
+      // Normalize record person name for comparison
+      const normalizedRecordPerson = normalizePersonName(record.person);
+      if (normalizedRecordPerson !== normalizedPersonName) return false;
+      
+      // Compare dates by date only (ignoring time) to avoid timezone issues
+      return isDateInRange(record.dateStart, previousWeekStart, previousWeekEnd);
     });
     
     // Sort by date (oldest first) and return topics with dates
@@ -356,17 +452,19 @@ const handleTopicAction = async (
   const topicAction = parts[2];
 
   if (topicAction === "copy_last") {
-    // Copy last topic from previous week
-    const previousTopics = await getPreviousWeekTopics(state.data.person);
-    if (previousTopics.length === 0) {
+    // Copy last topic from reference week (any person)
+    // For next week, use current week; for current week, use previous week
+    const weekType = state.data.weekType || "current";
+    const lastTopic = await getLastReferenceWeekTopic(weekType);
+    if (!lastTopic) {
+      const weekText = weekType === "next" ? "текущей" : "прошлой";
       return await sendMessage(
         chatId,
-        "❌ Нет тем прошлой недели для этого человека.",
+        `❌ Нет тем ${weekText} недели.`,
         { parse_mode: "HTML" }
       );
     }
     
-    const lastTopic = previousTopics[previousTopics.length - 1].topic;
     updatePrayerData(userId, { topic: lastTopic });
     setWaitingForTextInput(userId, false);
     
@@ -440,6 +538,17 @@ const handleTopicAction = async (
       reply_markup: keyboard,
       parse_mode: "HTML",
     });
+  }
+
+  if (topicAction === "new") {
+    // User wants to add new topic - request text input
+    setWaitingForTextInput(userId, true);
+    
+    return await sendMessage(
+      chatId,
+      `📝 <b>Введите новую тему молитвы</b>\n\nВведите тему молитвы для <b>${state.data.person}</b>:\n\n<i>Минимум 3 символа</i>`,
+      { parse_mode: "HTML" }
+    );
   }
 
   if (topicAction === "back") {

@@ -94,9 +94,9 @@ export const getStepMessage = (
 
     case "topic":
       if (data.person) {
-        return `📝 <b>Введите тему молитвы</b>\n\nВведите тему молитвы для <b>${data.person}</b>:\n\n<i>Минимум 3 символа</i>`;
+        return `📝 <b>Введите тему молитвы</b>\n\nВыберите действие для <b>${data.person}</b>:\n\n<i>Минимум 3 символа</i>`;
       }
-      return `📝 <b>Введите тему молитвы</b>\n\nВведите тему молитвы:\n\n<i>Минимум 3 символа</i>`;
+      return `📝 <b>Введите тему молитвы</b>\n\nВыберите действие:\n\n<i>Минимум 3 символа</i>`;
 
     case "completed":
       return `✅ <b>Молитвенная запись успешно добавлена!</b>`;
@@ -144,23 +144,15 @@ export const buildTopicInputKeyboard = (
 ): InlineKeyboardMarkup => {
   const buttons: InlineKeyboardButton[][] = [];
 
-  // Add button to copy last topic
-  if (previousTopics.length > 0) {
-    const lastTopic = previousTopics[previousTopics.length - 1];
-    const topicText = lastTopic.topic.length > 30 
-      ? `${lastTopic.topic.substring(0, 27)}...` 
-      : lastTopic.topic;
-    buttons.push([
-      { text: `📋 Скопировать: ${topicText}`, callback_data: "prayer:topic:copy_last" },
-    ]);
-  }
+  // Add button to copy last topic from previous week (always show)
+  buttons.push([
+    { text: "📋 Скопировать тему прошлой недели", callback_data: "prayer:topic:copy_last" },
+  ]);
 
-  // Add button to show previous week's topics
-  if (previousTopics.length > 0) {
-    buttons.push([
-      { text: "📚 Использовать тему прошлой недели", callback_data: "prayer:topic:show_previous" },
-    ]);
-  }
+  // Add button to add new topic
+  buttons.push([
+    { text: "➕ Добавить новую тему", callback_data: "prayer:topic:new" },
+  ]);
 
   // Add cancel button
   buttons.push([
