@@ -34,17 +34,6 @@ export function buildMainMenu(): InlineKeyboardMarkup {
     { text: "⛪ Готовность к воскресному служению", callback_data: "menu:sunday" },
   ]);
 
-  // Service category
-  buttons.push([
-    { text: "🔧 Тест Notion", callback_data: "cmd:test_notion" },
-    { text: "🗓️ Календарь", callback_data: "cmd:debug_calendar" },
-  ]);
-
-  // Menu refresh button
-  buttons.push([
-    { text: "🔄 Обновить меню", callback_data: "menu:main" },
-  ]);
-
   return {
     inline_keyboard: buttons,
   };
