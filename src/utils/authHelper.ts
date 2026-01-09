@@ -26,6 +26,37 @@ export const isUserAuthorized = (userId: number): boolean => {
 };
 
 /**
+ * Check if user is a youth leader (exists in YOUTH_LEADER_MAPPING)
+ * @param userId - Telegram user ID
+ * @returns true if user is a youth leader, false otherwise
+ */
+export const isYouthLeader = (userId: number): boolean => {
+  try {
+    const leaderMappingStr = process.env.YOUTH_LEADER_MAPPING;
+    if (!leaderMappingStr) {
+      logWarn("YOUTH_LEADER_MAPPING not configured", { userId });
+      return false;
+    }
+
+    const mappings = leaderMappingStr.split(",").map((m) => m.trim());
+    for (const mapping of mappings) {
+      const [idStr] = mapping.split(":").map((s) => s.trim());
+      const id = parseInt(idStr, 10);
+      if (!isNaN(id) && id === userId) {
+        logInfo("User is youth leader", { userId });
+        return true;
+      }
+    }
+
+    logWarn("User is not a youth leader", { userId });
+    return false;
+  } catch (error) {
+    logWarn("Error checking youth leader status", { userId, error });
+    return false;
+  }
+};
+
+/**
  * Get unauthorized access message
  * @returns Message to send to unauthorized users
  */

@@ -34,7 +34,7 @@ import {
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
-import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
+import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
 import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
 import {
@@ -168,7 +168,19 @@ export const handleMessage = async (
   }
 
   // Check authorization for commands
-  if (isCommand && !isUserAuthorized(userId)) {
+  // Special case: /youth_report allows both authorized users and youth leaders
+  if (isCommand && command === "/youth_report") {
+    // Check youth leader first - if user is a leader, allow access without checking authorization
+    const isLeader = isYouthLeader(userId);
+    if (!isLeader) {
+      // Only check authorization if user is not a leader
+      if (!isUserAuthorized(userId)) {
+        return await sendMessage(chatId, getUnauthorizedMessage(), {
+          parse_mode: "HTML",
+        });
+      }
+    }
+  } else if (isCommand && !isUserAuthorized(userId)) {
     return await sendMessage(chatId, getUnauthorizedMessage(), {
       parse_mode: "HTML",
     });
@@ -639,7 +651,28 @@ const handleCallbackQuery = async (
     callbackData,
   });
 
-  // Check authorization
+  // Check if it's a youth report callback - special authorization check
+  if (callbackData.startsWith("youth_report:")) {
+    // Check youth leader first - if user is a leader, allow access without checking authorization
+    const isLeader = isYouthLeader(userId);
+    if (!isLeader) {
+      // Only check authorization if user is not a leader
+      if (!isUserAuthorized(userId)) {
+        await answerCallbackQuery(callbackQueryId, "У вас нет доступа к этой команде", true);
+        return { success: false, error: "Unauthorized" };
+      }
+    }
+    await answerCallbackQuery(callbackQueryId);
+    const messageId = callbackQuery.message?.message_id;
+    return await handleYouthReportCallback(
+      userId,
+      chatId,
+      callbackData,
+      messageId
+    );
+  }
+
+  // Check authorization for other callbacks
   if (!isUserAuthorized(userId)) {
     await answerCallbackQuery(callbackQueryId, "У вас нет доступа к этой команде", true);
     return { success: false, error: "Unauthorized" };
@@ -674,18 +707,6 @@ const handleCallbackQuery = async (
     await answerCallbackQuery(callbackQueryId);
     const messageId = callbackQuery.message?.message_id;
     return await handlePrayerCallback(
-      userId,
-      chatId,
-      callbackData,
-      messageId
-    );
-  }
-
-  // Check if it's a youth report callback
-  if (callbackData.startsWith("youth_report:")) {
-    await answerCallbackQuery(callbackQueryId);
-    const messageId = callbackQuery.message?.message_id;
-    return await handleYouthReportCallback(
       userId,
       chatId,
       callbackData,
