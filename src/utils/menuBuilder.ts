@@ -38,11 +38,6 @@ export function buildMainMenu(): InlineKeyboardMarkup {
     { text: "📝 Редактировать расписание", callback_data: "cmd:edit_schedule" },
   ]);
 
-  // Polls category
-  buttons.push([
-    { text: "👥 Молодежь", callback_data: "cmd:youth_poll" },
-  ]);
-
   // Service category
   buttons.push([
     { text: "🔧 Тест Notion", callback_data: "cmd:test_notion" },

@@ -16,7 +16,6 @@
 - [`/request_state_sunday`](request-state-sunday.md) - Информация о воскресном служении
 - [`/weekly_schedule`](weekly-schedule.md) - Недельное расписание
 - [`/prayer_week`](prayer-week.md) - Молитвы на следующую неделю
-- [`/youth_poll`](youth-poll.md) - Опрос для молодежного служения
 
 ### Служебные команды
 

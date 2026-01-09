@@ -18,7 +18,6 @@ flowchart TD
     G -->|/request_state_sunday| L[requestStateSundayCommand.ts]
     G -->|/weekly_schedule| M[weeklyScheduleCommand.ts]
     G -->|/prayer_week| N[prayerWeekCommand.ts]
-    G -->|/youth_poll| F
     G -->|/create_poll| O[createPollCommand.ts]
     G -->|Prayer Need| P[Auto Detection]
     

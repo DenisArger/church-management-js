@@ -16,7 +16,6 @@ import {
 } from "../commands/addPrayerCommand";
 import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
-import { executeYouthPollCommand } from "../commands/youthPollCommand";
 import { executeShowMenuCommand } from "../commands/showMenuCommand";
 import {
   executeFillSundayServiceCommand,
@@ -193,9 +192,6 @@ export const handleMessage = async (
 
     case "/prayer_week":
       return await executePrayerWeekCommand(userId, chatId);
-
-    case "/youth_poll":
-      return await executeYouthPollCommand(userId, chatId);
 
     case "/menu":
       return await executeShowMenuCommand(userId, chatId);
@@ -743,9 +739,6 @@ const handleCallbackQuery = async (
 
       case "edit_schedule":
         return await executeEditScheduleCommand(userId, chatId);
-
-      case "youth_poll":
-        return await executeYouthPollCommand(userId, chatId);
 
       case "test_notion":
         return await executeTestNotionCommand(userId, chatId);

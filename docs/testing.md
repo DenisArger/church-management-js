@@ -61,7 +61,7 @@ ngrok http 8888
 - `/request_state_sunday` - воскресное служение
 - `/weekly_schedule` - недельное расписание
 - `/prayer_week` - молитвы на неделю
-- `/youth_poll` - опрос для молодежи
+- Опросы для молодежи создаются автоматически (youth-poll-scheduler)
 
 ## Debug режим
 
