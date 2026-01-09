@@ -5,6 +5,14 @@
 
 set -e  # Exit on any error
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the project root directory (parent of scripts directory)
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Change to project root directory
+cd "$PROJECT_ROOT"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -108,7 +116,27 @@ get_webhook_info() {
     if echo "$RESPONSE" | grep -q '"ok":true'; then
         print_success "Webhook information retrieved"
         echo
-        echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+        
+        # Try to format with jq if available, otherwise parse manually
+        if command -v jq >/dev/null 2>&1; then
+            echo "$RESPONSE" | jq '.'
+        else
+            # Extract key information from JSON manually
+            URL=$(echo "$RESPONSE" | grep -o '"url":"[^"]*' | cut -d'"' -f4)
+            PENDING=$(echo "$RESPONSE" | grep -o '"pending_update_count":[0-9]*' | cut -d':' -f2)
+            MAX_CONN=$(echo "$RESPONSE" | grep -o '"max_connections":[0-9]*' | cut -d':' -f2)
+            IP=$(echo "$RESPONSE" | grep -o '"ip_address":"[^"]*' | cut -d'"' -f4)
+            
+            echo "Webhook URL: ${URL:-not set}"
+            echo "Pending updates: ${PENDING:-0}"
+            echo "Max connections: ${MAX_CONN:-40}"
+            if [ -n "$IP" ]; then
+                echo "IP address: $IP"
+            fi
+            echo
+            echo "Full response:"
+            echo "$RESPONSE"
+        fi
         return 0
     else
         print_error "Failed to get webhook information"
@@ -165,15 +193,51 @@ set_webhook_from_netlify() {
     set_webhook "$webhook_url"
 }
 
+# Function to get Netlify URL from various sources
+# Outputs only URL to stdout, messages to stderr
+get_netlify_url() {
+    # First try .netlify-url file
+    if [ -f ".netlify-url" ]; then
+        cat .netlify-url
+        return
+    fi
+    
+    # Try to get from netlify status
+    if command -v netlify >/dev/null 2>&1; then
+        print_status "Trying to get URL from netlify status..." >&2
+        if netlify status >/dev/null 2>&1; then
+            if command -v jq >/dev/null 2>&1; then
+                URL=$(netlify status --json 2>/dev/null | jq -r '.site.url // empty' 2>/dev/null)
+            else
+                STATUS_OUTPUT=$(netlify status 2>&1)
+                URL=$(echo "$STATUS_OUTPUT" | grep -iE "(Site url|Website URL):" | sed -n 's/.*[Uu]RL:[[:space:]]*\(https\?:\/\/[^[:space:]]*\).*/\1/p' | head -1)
+            fi
+            
+            if [ -n "$URL" ] && [ "$URL" != "null" ] && [ "$URL" != "" ]; then
+                print_success "Found URL from netlify status: $URL" >&2
+                echo "$URL"
+                return
+            fi
+        fi
+    fi
+    
+    # Return empty string if URL not found
+    echo ""
+}
+
 # Function to set webhook from .netlify-url file
 set_webhook_from_file() {
-    if [ ! -f ".netlify-url" ]; then
-        print_error ".netlify-url file not found. Please run deployment first or provide URL manually."
-        print_status "You can set webhook manually using: $0 set-netlify <URL>"
+    netlify_url=$(get_netlify_url)
+    
+    if [ -z "$netlify_url" ]; then
+        print_error ".netlify-url file not found and could not get URL from netlify status"
+        print_status "Please do one of the following:"
+        echo "  1. Run deployment: ./scripts/deploy.sh"
+        echo "  2. Set webhook manually: $0 set-netlify <URL>"
+        echo "  3. Create .netlify-url file manually with your Netlify site URL"
         exit 1
     fi
     
-    netlify_url=$(cat .netlify-url)
     set_webhook_from_netlify "$netlify_url"
 }
 
@@ -301,11 +365,14 @@ main() {
             test_webhook "$webhook_url"
             ;;
         "test-file")
-            if [ ! -f ".netlify-url" ]; then
-                print_error ".netlify-url file not found. Please run deployment first."
+            netlify_url=$(get_netlify_url)
+            if [ -z "$netlify_url" ]; then
+                print_error ".netlify-url file not found and could not get URL from netlify status"
+                print_status "Please do one of the following:"
+                echo "  1. Run deployment: ./scripts/deploy.sh"
+                echo "  2. Test webhook manually: $0 test-netlify <URL>"
                 exit 1
             fi
-            netlify_url=$(cat .netlify-url)
             netlify_url=$(echo "$netlify_url" | sed 's:/*$::')
             webhook_url="${netlify_url}/.netlify/functions/telegram-webhook"
             test_webhook "$webhook_url"
