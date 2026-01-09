@@ -1066,6 +1066,22 @@ export const createSundayService = async (
 };
 
 /**
+ * Helper function to find the correct field name from page properties
+ */
+const findFieldName = (
+  pageProperties: Record<string, unknown>,
+  possibleFieldNames: string[]
+): string | null => {
+  for (const fieldName of possibleFieldNames) {
+    const prop = pageProperties[fieldName];
+    if (prop !== undefined && prop !== null) {
+      return fieldName;
+    }
+  }
+  return null;
+};
+
+/**
  * Update Sunday service in Notion
  */
 export const updateSundayService = async (
@@ -1089,6 +1105,34 @@ export const updateSundayService = async (
         error: "Недостаточно данных для обновления служения",
       };
     }
+
+    // First, retrieve the page to check what properties exist
+    const existingPage = await client.pages.retrieve({
+      page_id: serviceId,
+    });
+    const pageProperties = (existingPage as Record<string, unknown>).properties as Record<string, unknown>;
+
+    // Find the correct field names for song fields
+    const possibleSongBeforeStartFields = [
+      "Песня перед началом(1)",
+      "Песня перед началом",
+      "Песня перед началом служения",
+      "Песня в начале",
+      "Song before start",
+      "Песня в начале служения",
+    ];
+    const songBeforeStartFieldName = findFieldName(pageProperties, possibleSongBeforeStartFields);
+
+    const possibleSoloSongFields = [
+      "Песня группы",
+      "Сольная песня группы",
+      "Сольная песня",
+      "Сольная",
+      "Solo song",
+      "Сольное пение",
+      "Сольный номер",
+    ];
+    const soloSongFieldName = findFieldName(pageProperties, possibleSoloSongFields);
 
     // Prepare properties to update
     const properties: Record<string, unknown> = {};
@@ -1123,11 +1167,17 @@ export const updateSundayService = async (
     }
 
     if (streamData.songBeforeStart !== undefined) {
-      // Use only the field that exists in the database
-      // Try "Песня перед началом" first, as it's more common
-      properties["Песня перед началом"] = {
-        checkbox: streamData.songBeforeStart,
-      };
+      // Only update if the field exists in the database
+      if (songBeforeStartFieldName) {
+        properties[songBeforeStartFieldName] = {
+          checkbox: streamData.songBeforeStart,
+        };
+      } else {
+        logWarn("Song before start field not found in page properties", {
+          serviceId,
+          availableProperties: Object.keys(pageProperties),
+        });
+      }
     }
 
     if (streamData.numWorshipSongs !== null && streamData.numWorshipSongs !== undefined) {
@@ -1137,9 +1187,17 @@ export const updateSundayService = async (
     }
 
     if (streamData.soloSong !== undefined) {
-      properties["Песня группы"] = {
-        checkbox: streamData.soloSong,
-      };
+      // Only update if the field exists in the database
+      if (soloSongFieldName) {
+        properties[soloSongFieldName] = {
+          checkbox: streamData.soloSong,
+        };
+      } else {
+        logWarn("Solo song field not found in page properties", {
+          serviceId,
+          availableProperties: Object.keys(pageProperties),
+        });
+      }
     }
 
     if (streamData.repentanceSong !== undefined) {
@@ -1180,6 +1238,8 @@ export const updateSundayService = async (
     logInfo("Sunday service updated", {
       pageId: serviceId,
       streamType,
+      songBeforeStartFieldName,
+      soloSongFieldName,
     });
 
     return {
