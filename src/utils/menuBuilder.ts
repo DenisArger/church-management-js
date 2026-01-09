@@ -19,15 +19,13 @@ export function buildMainMenu(): InlineKeyboardMarkup {
 
   // Main commands category
   buttons.push([
-    { text: "📋 Молитвы", callback_data: "cmd:request_pray" },
     // { text: "📖 Писание", callback_data: "cmd:daily_scripture" }, // Disabled: functionality not needed
     { text: "📊 Опрос", callback_data: "cmd:create_poll" },
   ]);
 
-  // Prayer category
+  // Prayer category - unified menu
   buttons.push([
-    { text: "➕ Добавить молитву", callback_data: "cmd:add_prayer" },
-    { text: "📅 Неделя молитв", callback_data: "cmd:prayer_week" },
+    { text: "🙏 Молитва за молодежь", callback_data: "menu:prayer" },
   ]);
 
   // Schedule category
@@ -62,6 +60,36 @@ export function buildMainMenu(): InlineKeyboardMarkup {
 }
 
 /**
+ * Builds prayer submenu with prayer-related commands
+ */
+export function buildPrayerMenu(): InlineKeyboardMarkup {
+  const buttons: InlineKeyboardButton[][] = [];
+
+  // Prayer commands
+  buttons.push([
+    { text: "📅 Неделя молитвы", callback_data: "cmd:prayer_week" },
+  ]);
+
+  buttons.push([
+    { text: "📋 Все молитвы", callback_data: "cmd:all_prayers" },
+    { text: "⏰ Давно не молились", callback_data: "cmd:old_prayers" },
+  ]);
+
+  buttons.push([
+    { text: "➕ Добавить молитву", callback_data: "cmd:add_prayer" },
+  ]);
+
+  // Back button
+  buttons.push([
+    { text: "⬅️ Назад", callback_data: "menu:main" },
+  ]);
+
+  return {
+    inline_keyboard: buttons,
+  };
+}
+
+/**
  * Parses callback data to extract command and parameters
  */
 export function parseCallbackData(
@@ -77,7 +105,8 @@ export function parseCallbackData(
   }
 
   if (type === "menu") {
-    return { type };
+    const submenu = parts.length > 1 ? parts[1] : undefined;
+    return { type, command: submenu };
   }
 
   return { type: "unknown" };

@@ -25,19 +25,19 @@ export const formatAllPeopleMessage = (
 };
 
 /**
- * Formats the message about three people who haven't been prayed for recently
+ * Formats the message about people who haven't been prayed for recently
  */
-export const formatThreePeopleMessage = (
-  threePeople: PrayerPersonInfo[]
+export const formatOldPrayersMessage = (
+  oldPeople: PrayerPersonInfo[]
 ): string => {
   let message =
-    "📢 <b>Информация о трех людях, о которых давно не молились:</b>\n\n";
+    "📢 <b>Информация о пяти людях, о которых давно не молились:</b>\n\n";
 
   const seenPeople = new Set<string>();
   const uniquePeople: PrayerPersonInfo[] = [];
 
   // Remove duplicates based on person, date, and topic
-  for (const info of threePeople) {
+  for (const info of oldPeople) {
     const personKey = `${info.person}-${
       info.date.toISOString().split("T")[0]
     }-${info.record.topic}`;

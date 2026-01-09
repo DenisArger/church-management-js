@@ -1,6 +1,10 @@
 import { TelegramUpdate, CommandResult, TelegramMessage } from "../types";
 import { executeCreatePollCommand } from "../commands/createPollCommand";
-import { executePrayerRequestCommand } from "../commands/prayerRequestCommand";
+import {
+  executePrayerRequestCommand,
+  executeAllPrayersCommand,
+  executeOldPrayersCommand,
+} from "../commands/prayerRequestCommand";
 // import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand"; // Disabled: functionality not needed
 import { executeRequestStateSundayCommand } from "../commands/requestStateSundayCommand";
 import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
@@ -26,7 +30,7 @@ import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
-import { parseCallbackData } from "../utils/menuBuilder";
+import { parseCallbackData, buildPrayerMenu } from "../utils/menuBuilder";
 import {
   hasActiveState,
   getUserState,
@@ -645,8 +649,24 @@ const handleCallbackQuery = async (
   const parsed = parseCallbackData(callbackData);
 
   if (parsed.type === "menu") {
-    // Show main menu
     await answerCallbackQuery(callbackQueryId);
+    
+    // Handle submenus
+    if (parsed.command === "prayer") {
+      // Show prayer submenu
+      const prayerMenuMessage = `
+🙏 <b>Молитва за молодежь</b>
+
+Выберите нужную команду:
+`;
+      const prayerMenu = buildPrayerMenu();
+      return await sendMessage(chatId, prayerMenuMessage, {
+        parse_mode: "HTML",
+        reply_markup: prayerMenu,
+      });
+    }
+    
+    // Show main menu (menu:main or no submenu)
     return await executeShowMenuCommand(userId, chatId);
   }
 
@@ -672,6 +692,12 @@ const handleCallbackQuery = async (
 
       case "prayer_week":
         return await executePrayerWeekCommand(userId, chatId);
+
+      case "all_prayers":
+        return await executeAllPrayersCommand(userId, chatId, params);
+
+      case "old_prayers":
+        return await executeOldPrayersCommand(userId, chatId, params);
 
       case "weekly_schedule":
         // Handle weekly schedule with optional week type parameter

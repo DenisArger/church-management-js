@@ -8,7 +8,7 @@ import {
   sortPeopleByName,
   sortPeopleByDate,
   formatAllPeopleMessage,
-  formatThreePeopleMessage,
+  formatOldPrayersMessage,
 } from "../utils/messageFormatter";
 
 export const executePrayerRequestCommand = async (
@@ -91,29 +91,197 @@ export const executePrayerRequestCommand = async (
       return allPeopleResult;
     }
 
-    // For three people selection, always use date sorting (oldest first)
+    // For old people selection, always use date sorting (oldest first)
     const sortedPeopleByDate = sortPeopleByDate(peopleInfo);
-    const threePeople = sortedPeopleByDate.slice(0, 3);
+    const oldPeople = sortedPeopleByDate.slice(0, 5);
 
-    // Format and send three people message
-    const threePeopleMessage = formatThreePeopleMessage(threePeople);
-    const threePeopleResult = await sendMessage(chatId, threePeopleMessage, {
+    // Format and send old people message
+    const oldPeopleMessage = formatOldPrayersMessage(oldPeople);
+    const oldPeopleResult = await sendMessage(chatId, oldPeopleMessage, {
       parse_mode: "HTML",
     });
 
-    if (threePeopleResult.success) {
+    if (oldPeopleResult.success) {
       logInfo("Prayer newsletter sent successfully", {
         userId,
         chatId,
         totalPeople: peopleInfo.length,
-        threePeopleCount: threePeople.length,
+        oldPeopleCount: oldPeople.length,
         sortBy: sortDescription,
       });
     }
 
-    return threePeopleResult;
+    return oldPeopleResult;
   } catch (error) {
     logWarn("Error in prayer request command", error);
+    return {
+      success: false,
+      error: "Произошла ошибка при получении молитвенных записей",
+    };
+  }
+};
+
+/**
+ * Execute command to show all people with prayer dates
+ * Supports sorting by date (default) or name
+ */
+export const executeAllPrayersCommand = async (
+  userId: number,
+  chatId: number,
+  params: string[] = []
+): Promise<CommandResult> => {
+  logInfo("Executing all prayers command", { userId, chatId, params });
+
+  const config = getAppConfig();
+
+  // Parse sort parameter
+  const sortParam = params[0]?.toLowerCase();
+  const validSortOptions = ["date", "name", "дата", "имя"];
+
+  if (sortParam && !validSortOptions.includes(sortParam)) {
+    return await sendMessage(
+      chatId,
+      "❌ Неверный параметр сортировки.\n\n" +
+        "Доступные варианты:\n" +
+        "• `date` или `дата` - сортировка по дате (по умолчанию)\n" +
+        "• `name` или `имя` - сортировка по имени\n"
+    );
+  }
+
+  // Check DEBUG mode
+  if (config.debug) {
+    logInfo("DEBUG mode is active", { userId });
+    return await sendMessage(
+      chatId,
+      "DEBUG-режим активен"
+    );
+  }
+
+  try {
+    const prayerRecords = await getWeeklyPrayerRecords();
+
+    if (prayerRecords.length === 0) {
+      logInfo("No prayer records found");
+      return await sendMessage(chatId, "Нет данных для отображения.");
+    }
+
+    // Group records by person and find latest prayer date for each
+    const lastPrayerByPerson = groupPrayerRecordsByPerson(prayerRecords);
+
+    if (lastPrayerByPerson.size === 0) {
+      logInfo("No valid prayer records found after grouping");
+      return await sendMessage(chatId, "Нет данных для отображения.");
+    }
+
+    // Convert map to array for processing
+    const peopleInfo = Array.from(lastPrayerByPerson.values());
+
+    // Determine sort order based on parameter
+    const sortByName = sortParam === "name" || sortParam === "имя";
+
+    let sortedPeople: typeof peopleInfo;
+    let sortDescription: string;
+
+    if (sortByName) {
+      sortedPeople = sortPeopleByName(peopleInfo);
+      sortDescription = "по алфавиту";
+    } else {
+      // Default: sort by date (oldest first)
+      sortedPeople = sortPeopleByDate(peopleInfo);
+      sortDescription = "по дате (старые первыми)";
+    }
+
+    // Format and send complete list
+    const allPeopleMessage = formatAllPeopleMessage(
+      sortedPeople,
+      sortDescription
+    );
+    const result = await sendMessage(chatId, allPeopleMessage, {
+      parse_mode: "HTML",
+    });
+
+    if (result.success) {
+      logInfo("All prayers list sent successfully", {
+        userId,
+        chatId,
+        totalPeople: peopleInfo.length,
+        sortBy: sortDescription,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    logWarn("Error in all prayers command", error);
+    return {
+      success: false,
+      error: "Произошла ошибка при получении молитвенных записей",
+    };
+  }
+};
+
+/**
+ * Execute command to show 5 people who haven't been prayed for recently
+ * Always sorted by date (oldest first)
+ */
+export const executeOldPrayersCommand = async (
+  userId: number,
+  chatId: number,
+  params: string[] = []
+): Promise<CommandResult> => {
+  logInfo("Executing old prayers command", { userId, chatId, params });
+
+  const config = getAppConfig();
+
+  // Check DEBUG mode
+  if (config.debug) {
+    logInfo("DEBUG mode is active", { userId });
+    return await sendMessage(
+      chatId,
+      "DEBUG-режим активен"
+    );
+  }
+
+  try {
+    const prayerRecords = await getWeeklyPrayerRecords();
+
+    if (prayerRecords.length === 0) {
+      logInfo("No prayer records found");
+      return await sendMessage(chatId, "Нет данных для отображения.");
+    }
+
+    // Group records by person and find latest prayer date for each
+    const lastPrayerByPerson = groupPrayerRecordsByPerson(prayerRecords);
+
+    if (lastPrayerByPerson.size === 0) {
+      logInfo("No valid prayer records found after grouping");
+      return await sendMessage(chatId, "Нет данных для отображения.");
+    }
+
+    // Convert map to array for processing
+    const peopleInfo = Array.from(lastPrayerByPerson.values());
+
+    // Always sort by date (oldest first) for old prayers
+    const sortedPeopleByDate = sortPeopleByDate(peopleInfo);
+    const oldPeople = sortedPeopleByDate.slice(0, 5);
+
+    // Format and send old people message
+    const oldPeopleMessage = formatOldPrayersMessage(oldPeople);
+    const result = await sendMessage(chatId, oldPeopleMessage, {
+      parse_mode: "HTML",
+    });
+
+    if (result.success) {
+      logInfo("Old prayers list sent successfully", {
+        userId,
+        chatId,
+        totalPeople: peopleInfo.length,
+        oldPeopleCount: oldPeople.length,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    logWarn("Error in old prayers command", error);
     return {
       success: false,
       error: "Произошла ошибка при получении молитвенных записей",
