@@ -32,7 +32,7 @@ import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
-import { parseCallbackData, buildPrayerMenu } from "../utils/menuBuilder";
+import { parseCallbackData, buildPrayerMenu, buildScheduleMenu } from "../utils/menuBuilder";
 import {
   hasActiveState,
   getUserState,
@@ -683,6 +683,20 @@ const handleCallbackQuery = async (
       return await sendMessage(chatId, prayerMenuMessage, {
         parse_mode: "HTML",
         reply_markup: prayerMenu,
+      });
+    }
+    
+    if (parsed.command === "schedule") {
+      // Show schedule submenu
+      const scheduleMenuMessage = `
+📆 <b>Расписание</b>
+
+Выберите нужную команду:
+`;
+      const scheduleMenu = buildScheduleMenu();
+      return await sendMessage(chatId, scheduleMenuMessage, {
+        parse_mode: "HTML",
+        reply_markup: scheduleMenu,
       });
     }
     
