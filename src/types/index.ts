@@ -283,3 +283,42 @@ export interface ScheduleState {
   messageId?: number; // ID of the message with inline keyboard
   waitingForTextInput?: boolean; // True when waiting for text input
 }
+
+// Prayer Form types
+export type PrayerFormStep =
+  | "week"
+  | "person"
+  | "topic"
+  | "completed";
+
+export interface PrayerFormData {
+  weekType?: "current" | "next";
+  person?: string;
+  topic?: string;
+  peopleList?: Array<{
+    person: string;
+    date: Date;
+    record: {
+      id: string;
+      person: string;
+      topic: string;
+      note: string;
+      column?: string;
+      dateStart: Date;
+      dateEnd: Date;
+    };
+  }>; // Cached list of people for callback data decoding
+  previousTopics?: Array<{
+    topic: string;
+    date: Date;
+  }>; // Cached list of previous week's topics for selection
+}
+
+export interface PrayerFormState {
+  userId: number;
+  chatId: number;
+  step: PrayerFormStep;
+  data: PrayerFormData;
+  messageId?: number; // ID of the message with inline keyboard
+  waitingForTextInput?: boolean; // True when waiting for text input
+}

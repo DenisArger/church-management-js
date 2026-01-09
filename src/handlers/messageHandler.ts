@@ -10,7 +10,10 @@ import { executeRequestStateSundayCommand } from "../commands/requestStateSunday
 import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
 import { executeTestNotionCommand } from "../commands/testNotionCommand";
 import { executeHelpCommand } from "../commands/helpCommand";
-import { executeAddPrayerCommand } from "../commands/addPrayerCommand";
+import {
+  executeAddPrayerCommand,
+  handlePrayerCallback,
+} from "../commands/addPrayerCommand";
 import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
 import { executeYouthPollCommand } from "../commands/youthPollCommand";
@@ -43,6 +46,9 @@ import {
 import {
   hasActiveState as hasActiveScheduleState,
 } from "../utils/scheduleState";
+import {
+  hasActivePrayerState,
+} from "../utils/prayerState";
 import {
   isScriptureSchedule,
   parseScriptureSchedule,
@@ -129,6 +135,12 @@ export const handleMessage = async (
   if (!isCommand && chatType === "private" && hasActiveScheduleState(userId)) {
     // Handle regular text input for schedule form
     return await handleScheduleTextInput(userId, chatId, text);
+  }
+
+  // Check if user is in prayer form filling process
+  if (!isCommand && chatType === "private" && hasActivePrayerState(userId)) {
+    // Handle regular text input for prayer form
+    return await executeAddPrayerCommand(userId, chatId, [text]);
   }
 
   // In groups, only process commands - ignore everything else
@@ -638,6 +650,18 @@ const handleCallbackQuery = async (
     await answerCallbackQuery(callbackQueryId);
     const messageId = callbackQuery.message?.message_id;
     return await handleScheduleCallback(
+      userId,
+      chatId,
+      callbackData,
+      messageId
+    );
+  }
+
+  // Check if it's a prayer form callback
+  if (callbackData.startsWith("prayer:")) {
+    await answerCallbackQuery(callbackQueryId);
+    const messageId = callbackQuery.message?.message_id;
+    return await handlePrayerCallback(
       userId,
       chatId,
       callbackData,

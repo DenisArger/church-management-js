@@ -108,3 +108,17 @@ export const sortPeopleByDate = (
 ): PrayerPersonInfo[] => {
   return [...peopleInfo].sort((a, b) => a.date.getTime() - b.date.getTime());
 };
+
+/**
+ * Gets top N people who haven't been prayed for recently
+ * Returns array sorted by date (oldest first)
+ */
+export const getOldPrayersForSelection = (
+  records: PrayerRecord[],
+  limit: number = 5
+): PrayerPersonInfo[] => {
+  const lastPrayerByPerson = groupPrayerRecordsByPerson(records);
+  const peopleInfo = Array.from(lastPrayerByPerson.values());
+  const sortedPeopleByDate = sortPeopleByDate(peopleInfo);
+  return sortedPeopleByDate.slice(0, limit);
+};
