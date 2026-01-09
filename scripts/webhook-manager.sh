@@ -165,6 +165,18 @@ set_webhook_from_netlify() {
     set_webhook "$webhook_url"
 }
 
+# Function to set webhook from .netlify-url file
+set_webhook_from_file() {
+    if [ ! -f ".netlify-url" ]; then
+        print_error ".netlify-url file not found. Please run deployment first or provide URL manually."
+        print_status "You can set webhook manually using: $0 set-netlify <URL>"
+        exit 1
+    fi
+    
+    netlify_url=$(cat .netlify-url)
+    set_webhook_from_netlify "$netlify_url"
+}
+
 # Function to set webhook from ngrok URL
 set_webhook_from_ngrok() {
     local ngrok_url="$1"
