@@ -22,18 +22,27 @@ export const extractEventDetails = (event: {
   const themeFromNotion = event.theme || "";
   const eventDate = event.date;
 
-  // Extract time from event date
+  // Extract time from event date in Moscow timezone
   let time = "19:00"; // Default time
 
   if (eventDate) {
-    // Format time as HH:MM
-    const hours = eventDate.getHours().toString().padStart(2, "0");
-    const minutes = eventDate.getMinutes().toString().padStart(2, "0");
+    // Format time as HH:MM in Moscow timezone
+    const formatter = new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Europe/Moscow",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    
+    const parts = formatter.formatToParts(eventDate);
+    const hours = parts.find(part => part.type === "hour")?.value || "00";
+    const minutes = parts.find(part => part.type === "minute")?.value || "00";
     time = `${hours}:${minutes}`;
 
     logInfo("Extracted time from event date", {
       date: eventDate.toISOString(),
       time,
+      timezone: "Europe/Moscow",
     });
   } else {
     logInfo("No event date provided, using default time", {

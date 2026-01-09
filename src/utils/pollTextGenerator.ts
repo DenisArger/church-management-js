@@ -62,10 +62,21 @@ const getRandomPollOptions = (): [string, string] => {
 
 /**
  * Extract time from event date and format as HH:MM
+ * Uses Moscow timezone to match Notion timezone
  */
 const extractTimeFromEvent = (eventDate: Date): string => {
-  const hours = eventDate.getHours().toString().padStart(2, "0");
-  const minutes = eventDate.getMinutes().toString().padStart(2, "0");
+  // Format time in Moscow timezone
+  const formatter = new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(eventDate);
+  const hours = parts.find(part => part.type === "hour")?.value || "00";
+  const minutes = parts.find(part => part.type === "minute")?.value || "00";
+  
   return `${hours}:${minutes}`;
 };
 
