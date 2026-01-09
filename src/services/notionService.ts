@@ -5,13 +5,14 @@ import {
   DailyScripture,
   PrayerRecord,
   WeeklyPrayerInput,
+  YouthReportInput,
   CommandResult,
   NotionRichText,
   NotionSelect,
   NotionDate,
   NotionTitle,
 } from "../types";
-import { logInfo, logError } from "../utils/logger";
+import { logInfo, logError, logWarn } from "../utils/logger";
 import { getNotionConfig } from "../config/environment";
 import { formatDateForNotion } from "../utils/dateHelper";
 
@@ -676,3 +677,251 @@ export const getYouthEventForTomorrow =
       return null;
     }
   };
+
+/**
+ * Get leader name by Telegram user ID
+ * Uses mapping from environment configuration
+ */
+export const getLeaderByTelegramId = async (
+  telegramId: number
+): Promise<string | null> => {
+  try {
+    const config = getNotionConfig();
+    
+    // Get leader mapping from environment
+    // Format: "telegramId1:leaderName1,telegramId2:leaderName2"
+    const leaderMappingStr = process.env.YOUTH_LEADER_MAPPING;
+    if (!leaderMappingStr) {
+      logError("YOUTH_LEADER_MAPPING not configured");
+      return null;
+    }
+
+    const mappings = leaderMappingStr.split(",").map((m) => m.trim());
+    for (const mapping of mappings) {
+      const [idStr, leaderName] = mapping.split(":").map((s) => s.trim());
+      const id = parseInt(idStr, 10);
+      if (!isNaN(id) && id === telegramId) {
+        logInfo("Leader found by Telegram ID", { telegramId, leader: leaderName });
+        return leaderName;
+      }
+    }
+
+    logWarn("Leader not found for Telegram ID", { telegramId });
+    return null;
+  } catch (error) {
+    logError("Error getting leader by Telegram ID", error);
+    return null;
+  }
+};
+
+/**
+ * Get list of people assigned to a leader from Notion database
+ * Gets people from existing reports filtered by leader, or from database schema options
+ */
+export const getYouthPeopleForLeader = async (
+  leader: string
+): Promise<string[]> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    if (!config.youthReportDatabase) {
+      logError("NOTION_YOUTH_REPORT_DATABASE not configured");
+      return [];
+    }
+
+    logInfo("Getting youth people for leader", {
+      leader,
+      databaseId: config.youthReportDatabase,
+    });
+
+    // First, try to get options from database schema
+    try {
+      const database = await client.databases.retrieve({
+        database_id: config.youthReportDatabase,
+      });
+
+      const personProperty = database.properties["Человек"] as any;
+
+      if (
+        personProperty &&
+        personProperty.type === "select" &&
+        personProperty.select?.options
+      ) {
+        const allOptions = personProperty.select.options.map(
+          (opt: any) => opt.name
+        );
+        
+        // If we have options from schema, filter by existing reports for this leader
+        // to show only people that this leader has worked with
+        const response = await client.databases.query({
+          database_id: config.youthReportDatabase,
+          filter: {
+            property: "Лидер",
+            select: { equals: leader },
+          },
+          page_size: 100,
+        });
+
+        const peopleSet = new Set<string>();
+        response.results.forEach((page: any) => {
+          const personProp = page.properties["Человек"] as NotionSelect;
+          if (personProp?.select?.name) {
+            peopleSet.add(personProp.select.name);
+          }
+        });
+
+        const people = Array.from(peopleSet).sort();
+        
+        // If no reports found, return all options from schema
+        if (people.length === 0) {
+          logInfo("No reports found for leader, returning all schema options", {
+            leader,
+            optionsCount: allOptions.length,
+          });
+          return allOptions;
+        }
+
+        logInfo(`Retrieved ${people.length} people for leader from reports`, {
+          leader,
+          peopleCount: people.length,
+        });
+        return people;
+      }
+    } catch (schemaError) {
+      logWarn("Could not get people from schema", schemaError);
+    }
+
+    // Fallback: get unique values from existing records filtered by leader
+    const response = await client.databases.query({
+      database_id: config.youthReportDatabase,
+      filter: {
+        property: "Лидер",
+        select: { equals: leader },
+      },
+      page_size: 100,
+    });
+
+    const peopleSet = new Set<string>();
+
+    response.results.forEach((page: any) => {
+      const personProp = page.properties["Человек"] as NotionSelect;
+      if (personProp?.select?.name) {
+        peopleSet.add(personProp.select.name);
+      }
+    });
+
+    const people = Array.from(peopleSet).sort();
+    
+    logInfo(`Retrieved ${people.length} people for leader from records`, {
+      leader,
+      peopleCount: people.length,
+    });
+
+    return people;
+  } catch (error) {
+    logError("Error getting youth people for leader", error);
+    return [];
+  }
+};
+
+/**
+ * Create youth report record in Notion
+ */
+export const createYouthReportRecord = async (
+  reportInput: {
+    person: string;
+    leader: string;
+    date: Date;
+    communicationTypes: string[];
+    events: string[];
+    help?: string;
+    note?: string;
+  }
+): Promise<CommandResult> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    if (!config.youthReportDatabase) {
+      return {
+        success: false,
+        error: "NOTION_YOUTH_REPORT_DATABASE not configured",
+      };
+    }
+
+    logInfo("Creating youth report record", {
+      person: reportInput.person,
+      leader: reportInput.leader,
+      date: reportInput.date,
+    });
+
+    // Format date for Notion
+    const dateStr = formatDateForNotion(reportInput.date);
+
+    // Prepare multi-select options for communication types
+    const communicationOptions = reportInput.communicationTypes.map((type) => ({
+      name: type,
+    }));
+
+    // Prepare multi-select options for events
+    const eventsOptions = reportInput.events.map((event) => ({
+      name: event,
+    }));
+
+    // Generate title for the report
+    const reportTitle = `Отчет по работе с ${reportInput.person}`;
+
+    const response = await client.pages.create({
+      parent: { database_id: config.youthReportDatabase },
+      properties: {
+        Название: {
+          title: [{ text: { content: reportTitle } }],
+        },
+        Человек: {
+          select: { name: reportInput.person },
+        },
+        Лидер: {
+          select: { name: reportInput.leader },
+        },
+        "Дата отчета": {
+          date: { start: dateStr },
+        },
+        "Способы общения": {
+          multi_select: communicationOptions,
+        },
+        Мероприятия: {
+          multi_select: eventsOptions,
+        },
+        Помощь: {
+          rich_text: reportInput.help
+            ? [{ text: { content: reportInput.help } }]
+            : [],
+        },
+        Примечание: {
+          rich_text: reportInput.note
+            ? [{ text: { content: reportInput.note } }]
+            : [],
+        },
+      },
+    });
+
+    logInfo("Youth report record created successfully", {
+      pageId: response.id,
+      person: reportInput.person,
+      leader: reportInput.leader,
+    });
+
+    return {
+      success: true,
+      message: "Отчет успешно создан",
+      data: { pageId: response.id },
+    };
+  } catch (error) {
+    logError("Error creating youth report record", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};

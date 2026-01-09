@@ -322,3 +322,57 @@ export interface PrayerFormState {
   messageId?: number; // ID of the message with inline keyboard
   waitingForTextInput?: boolean; // True when waiting for text input
 }
+
+// Youth Report Form types
+export type YouthReportFormStep =
+  | "person"
+  | "communication"
+  | "events"
+  | "help"
+  | "note"
+  | "review"
+  | "completed";
+
+export interface YouthReportFormData {
+  person?: string;
+  communicationTypes?: string[];
+  events?: string[];
+  help?: string;
+  note?: string;
+  leader?: string;
+  date?: Date;
+  peopleList?: string[]; // Cached list of people for callback data decoding
+  communicationOther?: string; // Custom text for "Другое" in communication
+  eventsOther?: string; // Custom text for "Другое" in events
+  waitingForOtherText?: "communication" | "events" | "help" | "note" | null; // Which "other" field we're waiting for
+}
+
+export interface YouthReportState {
+  userId: number;
+  chatId: number;
+  step: YouthReportFormStep;
+  data: YouthReportFormData;
+  messageId?: number; // ID of the message with inline keyboard
+  waitingForTextInput?: boolean; // True when waiting for text input
+}
+
+export interface YouthReportRecord {
+  id: string;
+  person: string;
+  leader: string;
+  date: Date;
+  communicationTypes: string[];
+  events: string[];
+  help?: string;
+  note?: string;
+}
+
+export interface YouthReportInput {
+  person: string;
+  leader: string;
+  date: Date;
+  communicationTypes: string[];
+  events: string[];
+  help?: string;
+  note?: string;
+}

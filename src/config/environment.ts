@@ -38,6 +38,7 @@ export const getNotionConfig = () => ({
   generalCalendarDatabase: process.env.NOTION_GENERAL_CALENDAR_DATABASE!,
   dailyDistributionDatabase: process.env.NOTION_DAILY_DISTRIBUTION_DATABASE!,
   weeklyPrayerDatabase: process.env.NOTION_WEEKLY_PRAYER_DATABASE!,
+  youthReportDatabase: process.env.NOTION_YOUTH_REPORT_DATABASE,
 });
 
 export const getAppConfig = () => {

@@ -27,6 +27,10 @@ import {
   handleScheduleCallback,
   handleScheduleTextInput,
 } from "../commands/editScheduleCommand";
+import {
+  executeYouthReportCommand,
+  handleYouthReportCallback,
+} from "../commands/youthReportCommand";
 import { createPrayerNeed } from "../services/notionService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
@@ -48,6 +52,9 @@ import {
 import {
   hasActivePrayerState,
 } from "../utils/prayerState";
+import {
+  hasActiveYouthReportState,
+} from "../utils/youthReportState";
 import {
   isScriptureSchedule,
   parseScriptureSchedule,
@@ -142,6 +149,12 @@ export const handleMessage = async (
     return await executeAddPrayerCommand(userId, chatId, [text]);
   }
 
+  // Check if user is in youth report form filling process
+  if (!isCommand && chatType === "private" && hasActiveYouthReportState(userId)) {
+    // Handle regular text input for youth report form
+    return await executeYouthReportCommand(userId, chatId, [text]);
+  }
+
   // In groups, only process commands - ignore everything else
   if (chatType === "group" || chatType === "supergroup") {
     if (!isCommand) {
@@ -202,6 +215,9 @@ export const handleMessage = async (
 
     case "/edit_schedule":
       return await executeEditScheduleCommand(userId, chatId);
+
+    case "/youth_report":
+      return await executeYouthReportCommand(userId, chatId, params);
 
     default:
       // Check if it's a prayer request (only in private chats)
@@ -658,6 +674,18 @@ const handleCallbackQuery = async (
     await answerCallbackQuery(callbackQueryId);
     const messageId = callbackQuery.message?.message_id;
     return await handlePrayerCallback(
+      userId,
+      chatId,
+      callbackData,
+      messageId
+    );
+  }
+
+  // Check if it's a youth report callback
+  if (callbackData.startsWith("youth_report:")) {
+    await answerCallbackQuery(callbackQueryId);
+    const messageId = callbackQuery.message?.message_id;
+    return await handleYouthReportCallback(
       userId,
       chatId,
       callbackData,
