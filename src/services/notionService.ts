@@ -435,6 +435,7 @@ const extractThemeFromProperties = (
   properties: Record<string, unknown>
 ): string => {
   const descriptionProp = properties["Описание"] as NotionRichText;
+  const titleProp = properties["Название служения"] as NotionTitle;
 
   // Try different possible field names for theme
   const possibleThemeFields = [
@@ -468,7 +469,30 @@ const extractThemeFromProperties = (
     }
   }
 
-  // If no theme found in dedicated fields, try to extract from description
+  // If no theme found in dedicated fields, try to extract from title
+  if (!themeValue && titleProp?.title?.[0]?.text?.content) {
+    const title = titleProp.title[0].text.content;
+
+    // Look for theme patterns in title (e.g., "Тема:"..." or "Тема:"..."")
+    const themePatterns = [
+      /Тема:\s*["']([^"']+)["']/i,  // Тема:"..." or Тема:'...'
+      /Тема:\s*([^.\n]+)/i,          // Тема: ... (until dot or newline)
+      /тема:\s*["']([^"']+)["']/i,  // тема:"..." or тема:'...'
+      /тема:\s*([^.\n]+)/i,          // тема: ... (until dot or newline)
+    ];
+
+    for (const pattern of themePatterns) {
+      const match = title.match(pattern);
+      if (match && match[1]) {
+        themeValue = match[1].trim();
+        themeFieldName = "Название служения (extracted)";
+        logInfo(`Extracted theme from title`, { theme: themeValue });
+        break;
+      }
+    }
+  }
+
+  // If no theme found, try to extract from description
   if (!themeValue && descriptionProp?.rich_text?.[0]?.text?.content) {
     const description = descriptionProp.rich_text[0].text.content;
 

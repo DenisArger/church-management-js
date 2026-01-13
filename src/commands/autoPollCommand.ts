@@ -8,10 +8,9 @@ import { getAppConfig, getTelegramConfig } from "../config/environment";
 import { logInfo, logError, logWarn } from "../utils/logger";
 import { generatePollContent } from "../utils/pollTextGenerator";
 import {
-  shouldSendPoll,
-  shouldSendNotification,
   isEventMissing,
   hasTheme,
+  hasTime,
 } from "../utils/pollScheduler";
 
 /**
@@ -43,17 +42,41 @@ export const sendPollNotification = async (
       message = `⚠️ Внимание! Запланирована рассылка опроса, но событие отсутствует в календаре.\n\n`;
       message += `Дата события: ${eventDate.toLocaleDateString("ru-RU")} ${eventDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n\n`;
       message += `Пожалуйста, проверьте календарь и создайте событие, если оно должно быть.`;
-    } else if (event && !hasTheme(event)) {
-      message = `⚠️ Внимание! Запланирована рассылка опроса, но у события отсутствует тема.\n\n`;
-      message += `Событие: ${event.title}\n`;
-      message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n\n`;
-      message += `Опрос будет отправлен без темы. Пожалуйста, проверьте необходимость добавления темы.`;
     } else if (event) {
-      message = `📋 Напоминание: через 3 часа будет отправлен опрос о предстоящем событии.\n\n`;
-      message += `Событие: ${event.title}\n`;
-      message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
-      message += `Тема: "${event.theme}"\n\n`;
-      message += `Пожалуйста, проверьте необходимость отправки опроса и наличие темы.`;
+      const eventHasTheme = hasTheme(event);
+      const eventHasTime = hasTime(event);
+      const issues: string[] = [];
+      
+      if (!eventHasTheme) {
+        issues.push("отсутствует тема");
+      }
+      if (!eventHasTime) {
+        issues.push("не установлено время");
+      }
+      
+      if (issues.length > 0) {
+        message = `⚠️ Внимание! Запланирована рассылка опроса, но у события ${issues.join(" и ")}.\n\n`;
+        message += `Событие: ${event.title}\n`;
+        message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+        if (eventHasTheme) {
+          message += `Тема: "${event.theme}"\n`;
+        }
+        message += `\n`;
+        
+        if (!eventHasTheme && !eventHasTime) {
+          message += `Опрос будет отправлен без темы и с дефолтным временем (19:00). Пожалуйста, проверьте необходимость добавления темы и установки времени.`;
+        } else if (!eventHasTheme) {
+          message += `Опрос будет отправлен без темы. Пожалуйста, проверьте необходимость добавления темы.`;
+        } else if (!eventHasTime) {
+          message += `Опрос будет отправлен с дефолтным временем (19:00). Пожалуйста, проверьте необходимость установки времени.`;
+        }
+      } else {
+        message = `📋 Напоминание: через 3 часа будет отправлен опрос о предстоящем событии.\n\n`;
+        message += `Событие: ${event.title}\n`;
+        message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+        message += `Тема: "${event.theme}"\n\n`;
+        message += `Пожалуйста, проверьте необходимость отправки опроса и наличие темы.`;
+      }
     } else {
       // Fallback case (should not happen, but TypeScript requires it)
       message = `⚠️ Внимание! Запланирована рассылка опроса, но событие отсутствует в календаре.\n\n`;
@@ -69,6 +92,7 @@ export const sendPollNotification = async (
         eventId: event?.id,
         hasEvent: !!event,
         hasTheme: hasTheme(event),
+        hasTime: hasTime(event),
       });
     } else {
       logError("Failed to send poll notification", result.error);
