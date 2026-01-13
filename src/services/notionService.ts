@@ -509,12 +509,13 @@ const mapNotionPageToCalendarItem = (
 
   const themeValue = extractThemeFromProperties(properties);
 
+  const rawDate = (dateProp?.date?.start as string) || (page.created_time as string);
+  const eventDate = new Date(rawDate);
+
   return {
     id: page.id as string,
     title: titleProp?.title?.[0]?.text?.content || "",
-    date: new Date(
-      (dateProp?.date?.start as string) || (page.created_time as string)
-    ),
+    date: eventDate,
     description: descriptionProp?.rich_text?.[0]?.text?.content,
     theme: themeValue,
     type: "event" as const,

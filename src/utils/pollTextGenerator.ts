@@ -63,8 +63,21 @@ const getRandomPollOptions = (): [string, string] => {
 /**
  * Extract time from event date and format as HH:MM
  * Uses Moscow timezone to match Notion timezone
+ * If date has no time (only date), uses default time (19:00 for youth events)
  */
 const extractTimeFromEvent = (eventDate: Date): string => {
+  // Check if date has no time component (only date, time is 00:00:00 UTC)
+  // If hours, minutes, and seconds are all 0 in UTC, it's likely a date-only value
+  const isDateOnly = eventDate.getUTCHours() === 0 && 
+                     eventDate.getUTCMinutes() === 0 && 
+                     eventDate.getUTCSeconds() === 0 &&
+                     eventDate.getUTCMilliseconds() === 0;
+
+  if (isDateOnly) {
+    // Use default time 19:00 for youth events
+    return "19:00";
+  }
+
   // Format time in Moscow timezone
   const formatter = new Intl.DateTimeFormat("ru-RU", {
     timeZone: "Europe/Moscow",
