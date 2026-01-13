@@ -39,6 +39,7 @@ export const getNotionConfig = () => ({
   dailyDistributionDatabase: process.env.NOTION_DAILY_DISTRIBUTION_DATABASE!,
   weeklyPrayerDatabase: process.env.NOTION_WEEKLY_PRAYER_DATABASE!,
   youthReportDatabase: process.env.NOTION_YOUTH_REPORT_DATABASE,
+  youthLeadersDatabase: process.env.NOTION_YOUTH_LEADERS_DATABASE,
 });
 
 export const getAppConfig = () => {

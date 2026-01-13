@@ -1,5 +1,6 @@
 import { getTelegramConfig } from "../config/environment";
 import { logInfo, logWarn } from "./logger";
+import { getYouthLeadersMapping } from "../services/notionService";
 
 /**
  * Check if user is authorized to use bot commands
@@ -26,30 +27,22 @@ export const isUserAuthorized = (userId: number): boolean => {
 };
 
 /**
- * Check if user is a youth leader (exists in YOUTH_LEADER_MAPPING)
+ * Check if user is a youth leader (exists in Notion database)
  * @param userId - Telegram user ID
  * @returns true if user is a youth leader, false otherwise
  */
-export const isYouthLeader = (userId: number): boolean => {
+export const isYouthLeader = async (userId: number): Promise<boolean> => {
   try {
-    const leaderMappingStr = process.env.YOUTH_LEADER_MAPPING;
-    if (!leaderMappingStr) {
-      logWarn("YOUTH_LEADER_MAPPING not configured", { userId });
-      return false;
+    const mapping = await getYouthLeadersMapping();
+    const isLeader = mapping.has(userId);
+    
+    if (isLeader) {
+      logInfo("User is youth leader", { userId });
+    } else {
+      logWarn("User is not a youth leader", { userId });
     }
-
-    const mappings = leaderMappingStr.split(",").map((m) => m.trim());
-    for (const mapping of mappings) {
-      const [idStr] = mapping.split(":").map((s) => s.trim());
-      const id = parseInt(idStr, 10);
-      if (!isNaN(id) && id === userId) {
-        logInfo("User is youth leader", { userId });
-        return true;
-      }
-    }
-
-    logWarn("User is not a youth leader", { userId });
-    return false;
+    
+    return isLeader;
   } catch (error) {
     logWarn("Error checking youth leader status", { userId, error });
     return false;

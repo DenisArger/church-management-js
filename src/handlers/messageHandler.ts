@@ -171,7 +171,7 @@ export const handleMessage = async (
   // Special case: /youth_report allows both authorized users and youth leaders
   if (isCommand && command === "/youth_report") {
     // Check youth leader first - if user is a leader, allow access without checking authorization
-    const isLeader = isYouthLeader(userId);
+    const isLeader = await isYouthLeader(userId);
     if (!isLeader) {
       // Only check authorization if user is not a leader
       if (!isUserAuthorized(userId)) {
@@ -654,7 +654,7 @@ const handleCallbackQuery = async (
   // Check if it's a youth report callback - special authorization check
   if (callbackData.startsWith("youth_report:")) {
     // Check youth leader first - if user is a leader, allow access without checking authorization
-    const isLeader = isYouthLeader(userId);
+    const isLeader = await isYouthLeader(userId);
     if (!isLeader) {
       // Only check authorization if user is not a leader
       if (!isUserAuthorized(userId)) {

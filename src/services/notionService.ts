@@ -705,30 +705,18 @@ export const getYouthEventForTomorrow =
 
 /**
  * Get leader name by Telegram user ID
- * Uses mapping from environment configuration
+ * Uses Notion database with caching
  */
 export const getLeaderByTelegramId = async (
   telegramId: number
 ): Promise<string | null> => {
   try {
-    const config = getNotionConfig();
+    const mapping = await getYouthLeadersMapping();
+    const leaderName = mapping.get(telegramId);
     
-    // Get leader mapping from environment
-    // Format: "telegramId1:leaderName1,telegramId2:leaderName2"
-    const leaderMappingStr = process.env.YOUTH_LEADER_MAPPING;
-    if (!leaderMappingStr) {
-      logError("YOUTH_LEADER_MAPPING not configured");
-      return null;
-    }
-
-    const mappings = leaderMappingStr.split(",").map((m) => m.trim());
-    for (const mapping of mappings) {
-      const [idStr, leaderName] = mapping.split(":").map((s) => s.trim());
-      const id = parseInt(idStr, 10);
-      if (!isNaN(id) && id === telegramId) {
-        logInfo("Leader found by Telegram ID", { telegramId, leader: leaderName });
-        return leaderName;
-      }
+    if (leaderName) {
+      logInfo("Leader found by Telegram ID", { telegramId, leader: leaderName });
+      return leaderName;
     }
 
     logWarn("Leader not found for Telegram ID", { telegramId });
@@ -949,4 +937,108 @@ export const createYouthReportRecord = async (
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+};
+
+// Кэш для маппинга лидеров (обновляется каждые 5 минут)
+let youthLeadersCache: Map<number, string> | null = null;
+let youthLeadersCacheTimestamp: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
+/**
+ * Получить маппинг молодежных лидеров из Notion
+ * Использует кэш для оптимизации производительности
+ */
+export const getYouthLeadersMapping = async (): Promise<Map<number, string>> => {
+  const now = Date.now();
+  
+  // Возвращаем кэш, если он еще актуален
+  if (youthLeadersCache && (now - youthLeadersCacheTimestamp) < CACHE_TTL) {
+    return youthLeadersCache;
+  }
+
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    if (!config.youthLeadersDatabase) {
+      logWarn("NOTION_YOUTH_LEADERS_DATABASE not configured, falling back to env");
+      // Fallback на переменную окружения для обратной совместимости
+      return getYouthLeadersFromEnv();
+    }
+
+    logInfo("Loading youth leaders from Notion", {
+      databaseId: config.youthLeadersDatabase,
+    });
+
+    const response = await client.databases.query({
+      database_id: config.youthLeadersDatabase,
+      filter: {
+        property: "Активен",
+        checkbox: { equals: true },
+      },
+    });
+
+    const mapping = new Map<number, string>();
+
+    for (const page of response.results) {
+      const properties = (page as any).properties;
+      
+      const nameProperty = properties["Имя"];
+      const telegramIdProperty = properties["Telegram ID"];
+      const activeProperty = properties["Активен"];
+
+      if (
+        nameProperty?.title?.[0]?.plain_text &&
+        telegramIdProperty?.number !== undefined &&
+        activeProperty?.checkbox === true
+      ) {
+        const name = nameProperty.title[0].plain_text;
+        const telegramId = Math.floor(telegramIdProperty.number);
+        
+        mapping.set(telegramId, name);
+        logInfo("Loaded youth leader", { telegramId, name });
+      }
+    }
+
+    // Обновляем кэш
+    youthLeadersCache = mapping;
+    youthLeadersCacheTimestamp = now;
+
+    logInfo(`Loaded ${mapping.size} active youth leaders from Notion`);
+    return mapping;
+  } catch (error) {
+    logError("Error loading youth leaders from Notion", error);
+    // Fallback на переменную окружения
+    return getYouthLeadersFromEnv();
+  }
+};
+
+/**
+ * Fallback: получить маппинг из переменной окружения
+ */
+const getYouthLeadersFromEnv = (): Map<number, string> => {
+  const mapping = new Map<number, string>();
+  const leaderMappingStr = process.env.YOUTH_LEADER_MAPPING;
+  
+  if (leaderMappingStr) {
+    const mappings = leaderMappingStr.split(",").map((m) => m.trim());
+    for (const mappingStr of mappings) {
+      const [idStr, leaderName] = mappingStr.split(":").map((s) => s.trim());
+      const id = parseInt(idStr, 10);
+      if (!isNaN(id) && leaderName) {
+        mapping.set(id, leaderName);
+      }
+    }
+  }
+  
+  return mapping;
+};
+
+/**
+ * Инвалидировать кэш лидеров (вызывать после изменений в Notion)
+ */
+export const invalidateYouthLeadersCache = (): void => {
+  youthLeadersCache = null;
+  youthLeadersCacheTimestamp = 0;
+  logInfo("Youth leaders cache invalidated");
 };
