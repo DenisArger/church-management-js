@@ -22,6 +22,7 @@ import {
   buildEventsKeyboard,
   buildReviewKeyboard,
   buildEditFieldKeyboard,
+  buildSkipKeyboard,
   getStepMessage,
   getPersonByIndex,
   formatPreviewMessage,
@@ -134,6 +135,8 @@ export const handleYouthReportCallback = async (
         return await handleEventsSelection(userId, chatId, callbackData, state);
       case "edit":
         return await handleEdit(userId, chatId, parts[2], state);
+      case "skip":
+        return await handleSkip(userId, chatId, parts[2], state);
       case "confirm":
         return await handleConfirm(userId, chatId, state);
       case "cancel":
@@ -303,8 +306,10 @@ const handleEventsSelection = async (
     setWaitingForTextInput(userId, true);
 
     const message = getStepMessage("help", state.data);
+    const keyboard = buildSkipKeyboard("help");
     
     return await sendMessage(chatId, message, {
+      reply_markup: keyboard,
       parse_mode: "HTML",
     });
   }
@@ -427,7 +432,9 @@ const handleEdit = async (
       updateYouthReportStep(userId, "help");
       setWaitingForTextInput(userId, true);
       const helpMessage = getStepMessage("help", state.data);
+      const helpKeyboard = buildSkipKeyboard("help");
       return await sendMessage(chatId, helpMessage, {
+        reply_markup: helpKeyboard,
         parse_mode: "HTML",
       });
 
@@ -435,13 +442,57 @@ const handleEdit = async (
       updateYouthReportStep(userId, "note");
       setWaitingForTextInput(userId, true);
       const noteMessage = getStepMessage("note", state.data);
+      const noteKeyboard = buildSkipKeyboard("note");
       return await sendMessage(chatId, noteMessage, {
+        reply_markup: noteKeyboard,
         parse_mode: "HTML",
       });
 
     default:
       return { success: false, error: "Неизвестное поле для редактирования" };
   }
+};
+
+/**
+ * Handle skip button for optional fields (help, note)
+ */
+const handleSkip = async (
+  userId: number,
+  chatId: number,
+  step: string | undefined,
+  state: ReturnType<typeof getYouthReportState>
+): Promise<CommandResult> => {
+  if (!state) return { success: false, error: "State not found" };
+
+  if (step === "help") {
+    // Skip help field
+    updateYouthReportData(userId, { help: "" });
+    updateYouthReportStep(userId, "note");
+    setWaitingForTextInput(userId, true);
+
+    const message = getStepMessage("note", state.data);
+    const keyboard = buildSkipKeyboard("note");
+    
+    return await sendMessage(chatId, message, {
+      reply_markup: keyboard,
+      parse_mode: "HTML",
+    });
+  } else if (step === "note") {
+    // Skip note field
+    updateYouthReportData(userId, { note: "" });
+    updateYouthReportStep(userId, "review");
+    setWaitingForTextInput(userId, false);
+
+    const reviewMessage = formatPreviewMessage(state.data);
+    const keyboard = buildReviewKeyboard();
+    
+    return await sendMessage(chatId, reviewMessage, {
+      reply_markup: keyboard,
+      parse_mode: "HTML",
+    });
+  }
+
+  return { success: false, error: "Неизвестный шаг для пропуска" };
 };
 
 /**
@@ -460,7 +511,11 @@ const handleYouthReportTextInput = async (
     };
   }
 
-  if (!text || text.trim().length === 0) {
+  // Normalize text before checking if empty
+  const normalizedText = text ? text.trim() : "";
+  const isEmpty = normalizedText.length === 0;
+
+  if (isEmpty) {
     // Allow empty text for optional fields
     if (state.step === "help" || state.step === "note") {
       // Skip optional fields
@@ -469,7 +524,9 @@ const handleYouthReportTextInput = async (
         updateYouthReportStep(userId, "note");
         setWaitingForTextInput(userId, true);
         const message = getStepMessage("note", state.data);
+        const keyboard = buildSkipKeyboard("note");
         return await sendMessage(chatId, message, {
+          reply_markup: keyboard,
           parse_mode: "HTML",
         });
       } else if (state.step === "note") {
@@ -487,7 +544,7 @@ const handleYouthReportTextInput = async (
     return await sendMessage(chatId, "❌ Пустой ввод. Пожалуйста, введите данные.");
   }
 
-  const trimmedText = text.trim();
+  const trimmedText = normalizedText;
 
   // Check if we're waiting for "other" text
   if (state.data.waitingForOtherText) {
@@ -530,7 +587,9 @@ const handleYouthReportTextInput = async (
       // Continue to help
       updateYouthReportStep(userId, "help");
       const message = getStepMessage("help", { ...state.data, eventsOther: trimmedText });
+      const keyboard = buildSkipKeyboard("help");
       return await sendMessage(chatId, message, {
+        reply_markup: keyboard,
         parse_mode: "HTML",
       });
     }
@@ -543,7 +602,9 @@ const handleYouthReportTextInput = async (
     setWaitingForTextInput(userId, true);
 
     const message = getStepMessage("note", { ...state.data, help: trimmedText });
+    const keyboard = buildSkipKeyboard("note");
     return await sendMessage(chatId, message, {
+      reply_markup: keyboard,
       parse_mode: "HTML",
     });
   } else if (state.step === "note") {

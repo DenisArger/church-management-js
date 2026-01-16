@@ -170,6 +170,22 @@ export const buildEditFieldKeyboard = (
 };
 
 /**
+ * Build keyboard with skip button for optional fields (help, note)
+ */
+export const buildSkipKeyboard = (
+  step: "help" | "note"
+): InlineKeyboardMarkup => {
+  return {
+    inline_keyboard: [
+      [
+        { text: "⏭ Пропустить", callback_data: `youth_report:skip:${step}` },
+        { text: "❌ Отмена", callback_data: "youth_report:cancel" },
+      ],
+    ],
+  };
+};
+
+/**
  * Get message text for current step
  */
 export const getStepMessage = (
