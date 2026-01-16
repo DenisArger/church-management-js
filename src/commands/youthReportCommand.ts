@@ -1,11 +1,12 @@
 import { CommandResult } from "../types";
-import { sendMessage, answerCallbackQuery } from "../services/telegramService";
+import { sendMessage, answerCallbackQuery, sendMessageToUser } from "../services/telegramService";
 import { 
   createYouthReportRecord, 
   getYouthPeopleForLeader,
   getLeaderByTelegramId 
 } from "../services/notionService";
 import { logInfo, logWarn, logError } from "../utils/logger";
+import { getTelegramConfig } from "../config/environment";
 import {
   getYouthReportState,
   initYouthReportState,
@@ -624,6 +625,87 @@ const handleYouthReportTextInput = async (
 };
 
 /**
+ * Send notification to administrator about youth report
+ */
+const sendAdminNotification = async (
+  type: "success" | "error",
+  reportData: {
+    leader: string;
+    person: string;
+    date: Date;
+    communicationTypes: string[];
+    events: string[];
+    help?: string;
+    note?: string;
+  },
+  error?: string
+): Promise<void> => {
+  try {
+    const telegramConfig = getTelegramConfig();
+    const adminUsers = telegramConfig.allowedUsers;
+    
+    if (adminUsers.length === 0) {
+      logWarn("No allowed users configured for admin notifications");
+      return;
+    }
+    
+    const adminUserId = adminUsers[0];
+    let message: string;
+    
+    if (type === "success") {
+      const dateStr = reportData.date.toLocaleDateString("ru-RU", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      
+      message = `✅ <b>Новый отчет молодежи заполнен</b>\n\n`;
+      message += `👤 <b>Лидер:</b> ${reportData.leader}\n`;
+      message += `👥 <b>Человек:</b> ${reportData.person}\n`;
+      message += `📅 <b>Дата отчета:</b> ${dateStr}\n\n`;
+      message += `💬 <b>Способы общения:</b> ${reportData.communicationTypes.join(", ") || "не указаны"}\n`;
+      message += `📅 <b>Мероприятия:</b> ${reportData.events.join(", ") || "не указаны"}\n`;
+      if (reportData.help) {
+        message += `🆘 <b>Помощь:</b> ${reportData.help}\n`;
+      }
+      if (reportData.note) {
+        message += `📝 <b>Примечание:</b> ${reportData.note}\n`;
+      }
+    } else {
+      const dateStr = reportData.date.toLocaleDateString("ru-RU", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      
+      message = `❌ <b>Ошибка при сохранении отчета молодежи</b>\n\n`;
+      message += `👤 <b>Лидер:</b> ${reportData.leader}\n`;
+      message += `👥 <b>Человек:</b> ${reportData.person}\n`;
+      message += `📅 <b>Дата отчета:</b> ${dateStr}\n\n`;
+      message += `⚠️ <b>Ошибка:</b> ${error || "Неизвестная ошибка"}\n`;
+    }
+    
+    const result = await sendMessageToUser(adminUserId, message, {
+      parse_mode: "HTML",
+    });
+    
+    if (result.success) {
+      logInfo("Admin notification sent", {
+        type,
+        adminUserId,
+        person: reportData.person,
+        leader: reportData.leader,
+      });
+    } else {
+      logError("Failed to send admin notification", result.error);
+    }
+  } catch (error) {
+    logError("Error sending admin notification", error);
+    // Не пробрасываем ошибку, чтобы не прерывать основной поток
+  }
+};
+
+/**
  * Handle confirmation and save to Notion
  */
 const handleConfirm = async (
@@ -694,12 +776,35 @@ ${reportInput.note ? `📝 <b>Примечание:</b> ${reportInput.note}\n` :
         leader: reportInput.leader,
       });
 
+      // Send notification to admin
+      await sendAdminNotification("success", {
+        leader: reportInput.leader,
+        person: reportInput.person,
+        date: reportInput.date,
+        communicationTypes,
+        events,
+        help: reportInput.help,
+        note: reportInput.note,
+      });
+
       // Clear state
       clearYouthReportState(userId);
 
       return await sendMessage(chatId, successMessage, { parse_mode: "HTML" });
     } else {
       logWarn("Failed to save youth report", { error: result.error });
+      
+      // Send error notification to admin
+      await sendAdminNotification("error", {
+        leader: reportInput.leader,
+        person: reportInput.person,
+        date: reportInput.date,
+        communicationTypes,
+        events,
+        help: reportInput.help,
+        note: reportInput.note,
+      }, result.error || "Неизвестная ошибка при сохранении в Notion");
+      
       return await sendMessage(
         chatId,
         `❌ Ошибка при сохранении отчета: ${result.error}\n\nПопробуйте еще раз или обратитесь к администратору.`
@@ -707,6 +812,19 @@ ${reportInput.note ? `📝 <b>Примечание:</b> ${reportInput.note}\n` :
     }
   } catch (error) {
     logError("Error saving youth report", error);
+    
+    // Send error notification to admin
+    const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
+    await sendAdminNotification("error", {
+      leader: state.data.leader || "неизвестен",
+      person: state.data.person || "неизвестен",
+      date: state.data.date || new Date(),
+      communicationTypes: state.data.communicationTypes || [],
+      events: state.data.events || [],
+      help: state.data.help,
+      note: state.data.note,
+    }, errorMessage);
+    
     return {
       success: false,
       error: "Произошла ошибка при сохранении отчета",
