@@ -63,10 +63,12 @@ export const executeYouthReportCommand = async (
     // Get leader name by Telegram ID
     const leader = await getLeaderByTelegramId(userId);
     if (!leader) {
-      return {
+      const errorResult = {
         success: false,
         error: "Не удалось определить лидера. Обратитесь к администратору.",
       };
+      await sendMessage(chatId, errorResult.error);
+      return errorResult;
     }
 
     // Initialize state
@@ -75,10 +77,12 @@ export const executeYouthReportCommand = async (
     // Get list of people for this leader
     const people = await getYouthPeopleForLeader(leader);
     if (people.length === 0) {
-      return {
+      const errorResult = {
         success: false,
         error: "Не найдены люди, закрепленные за вами. Обратитесь к администратору.",
       };
+      await sendMessage(chatId, errorResult.error);
+      return errorResult;
     }
 
     // Store people list in state for callback data decoding
@@ -99,10 +103,12 @@ export const executeYouthReportCommand = async (
     return result;
   } catch (error) {
     logError("Error in youth report command", error);
-    return {
+    const errorResult = {
       success: false,
       error: "Произошла ошибка при запуске формы отчета",
     };
+    await sendMessage(chatId, errorResult.error);
+    return errorResult;
   }
 };
 
