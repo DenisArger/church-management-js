@@ -45,9 +45,17 @@ export const executeYouthReportCommand = async (
   logInfo("Executing youth report command", { userId, chatId, params });
 
   // Check if user has active youth report form state
-  if (hasActiveYouthReportState(userId)) {
-    // Handle text input
-    return await handleYouthReportTextInput(userId, chatId, params.join(" "));
+  const hasActiveState = hasActiveYouthReportState(userId);
+
+  if (hasActiveState) {
+    // If params is empty, this is a command (not text input) - clear state and start new form
+    if (params.length === 0) {
+      clearYouthReportState(userId);
+      // Fall through to start new form
+    } else {
+      // Handle text input
+      return await handleYouthReportTextInput(userId, chatId, params.join(" "));
+    }
   }
 
   // No active state - start interactive form
