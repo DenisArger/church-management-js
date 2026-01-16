@@ -1,8 +1,13 @@
 import { Handler, HandlerEvent } from "@netlify/functions";
-import { executeAutoPollForEvent } from "../../src/commands/autoPollCommand";
+import {
+  executeAutoPollForEvent,
+  sendPollFailureNotification,
+} from "../../src/commands/autoPollCommand";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import { shouldSendPoll } from "../../src/utils/pollScheduler";
 import { logInfo, logError } from "../../src/utils/logger";
+import { sendMessageToUser } from "../../src/services/telegramService";
+import { getTelegramConfig } from "../../src/config/environment";
 
 /**
  * Netlify Scheduled Function for sending polls automatically
@@ -70,6 +75,27 @@ export const handler: Handler = async (event: HandlerEvent) => {
             eventId: event.id,
             error: result.error,
           });
+          
+          // Notify administrator about the failure from scheduler context
+          // This provides redundancy in case notification in executeAutoPollForEvent failed
+          try {
+            await sendPollFailureNotification(
+              event,
+              result.error || "Неизвестная ошибка при отправке опроса",
+              {
+                chatId: null, // Will be determined in the function
+                debugMode: false,
+                timestamp: new Date(),
+                additionalInfo: "Ошибка обнаружена планировщиком опросов",
+              }
+            );
+          } catch (notificationError) {
+            // Don't throw - we've already logged the original error
+            logError("Failed to send failure notification from scheduler", {
+              notificationError,
+              eventId: event.id,
+            });
+          }
         }
       } else {
         pollsSkipped++;
@@ -99,13 +125,34 @@ export const handler: Handler = async (event: HandlerEvent) => {
       }),
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     logError("Error in poll sender scheduler", error);
+    
+    // Notify administrator about critical scheduler error
+    try {
+      const telegramConfig = getTelegramConfig();
+      const adminUsers = telegramConfig.allowedUsers;
+      
+      if (adminUsers.length > 0) {
+        const adminUserId = adminUsers[0];
+        const message = `❌ КРИТИЧЕСКАЯ ОШИБКА в планировщике опросов\n\n` +
+          `Ошибка: ${errorMessage}\n` +
+          `Время: ${new Date().toLocaleString("ru-RU")}\n\n` +
+          `Планировщик не смог обработать события. Пожалуйста, проверьте логи и настройки.`;
+        
+        await sendMessageToUser(adminUserId, message);
+        logInfo("Critical scheduler error notification sent to administrator");
+      }
+    } catch (notificationError) {
+      // Don't throw - we've already logged the original error
+      logError("Failed to send critical scheduler error notification", notificationError);
+    }
     
     return {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       }),
     };
   }

@@ -109,6 +109,82 @@ export const sendPollNotification = async (
 };
 
 /**
+ * Send poll failure notification to administrator
+ * @param event - The calendar event that failed
+ * @param errorMessage - Error message from the failure
+ * @param context - Additional context information (chatId, topicId, debug mode, etc.)
+ */
+export const sendPollFailureNotification = async (
+  event: CalendarItem,
+  errorMessage: string,
+  context: {
+    chatId?: number | null;
+    topicId?: number;
+    debugMode?: boolean;
+    timestamp?: Date;
+    additionalInfo?: string;
+  }
+): Promise<void> => {
+  try {
+    const telegramConfig = getTelegramConfig();
+    
+    // Get first allowed user as administrator
+    const adminUsers = telegramConfig.allowedUsers;
+    if (adminUsers.length === 0) {
+      logWarn("No allowed users configured for failure notifications");
+      return;
+    }
+    
+    const adminUserId = adminUsers[0];
+    const timestamp = context.timestamp || new Date();
+    
+    // Build detailed error message
+    let message = `❌ ОШИБКА: Не удалось отправить опрос\n\n`;
+    message += `Событие: ${event.title}\n`;
+    message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+    message += `ID события: ${event.id}\n\n`;
+    message += `Ошибка: ${errorMessage}\n\n`;
+    message += `Контекст:\n`;
+    message += `- Chat ID: ${context.chatId || "не установлен"}\n`;
+    message += `- Topic ID: ${context.topicId || "не установлен"}\n`;
+    message += `- Режим: ${context.debugMode ? "debug" : "production"}\n`;
+    message += `- Время попытки: ${timestamp.toLocaleString("ru-RU")}\n`;
+    
+    if (context.additionalInfo) {
+      message += `\nДополнительная информация: ${context.additionalInfo}`;
+    }
+    
+    message += `\n\nПожалуйста, проверьте:\n`;
+    message += `1. Настройки бота и чата\n`;
+    message += `2. Права бота в группе\n`;
+    message += `3. Логи для дополнительной информации`;
+    
+    const result = await sendMessageToUser(adminUserId, message);
+    
+    if (result.success) {
+      logInfo("Poll failure notification sent to administrator", {
+        adminUserId,
+        eventId: event.id,
+        eventTitle: event.title,
+      });
+    } else {
+      // Don't try to send notification about notification failure - just log it
+      logError("Failed to send poll failure notification to administrator", {
+        adminUserId,
+        error: result.error,
+        originalEventId: event.id,
+      });
+    }
+  } catch (error) {
+    // Don't try to send notification about notification failure - just log it
+    logError("Error sending poll failure notification", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      eventId: event.id,
+    });
+  }
+};
+
+/**
  * Execute auto poll for a specific event
  * @param event - The calendar event to create poll for
  * @param overrideChatId - Optional chat ID to override configured chat ID (for manual testing)
@@ -176,13 +252,52 @@ export const executeAutoPollForEvent = async (
       };
     } else {
       logError("Failed to create auto poll", { error: result.error });
+      
+      // Notify administrator about the failure
+      await sendPollFailureNotification(
+        event,
+        result.error || "Неизвестная ошибка при отправке опроса",
+        {
+          chatId: chatId,
+          topicId: telegramConfig.topicId,
+          debugMode: appConfig.debug,
+          timestamp: new Date(),
+          additionalInfo: `Вопрос опроса: "${question}"`,
+        }
+      );
+      
       return {
         success: false,
         error: "Не удалось создать опрос",
       };
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
     logError("Error in auto poll command", error);
+    
+    // Notify administrator about the critical error
+    // This covers errors that occur before sendPoll (e.g., content generation, configuration)
+    try {
+      const appConfig = getAppConfig();
+      const telegramConfig = getTelegramConfigForMode(appConfig.debug);
+      const chatId = overrideChatId || telegramConfig.chatId;
+      
+      await sendPollFailureNotification(
+        event,
+        `Критическая ошибка: ${errorMessage}`,
+        {
+          chatId: chatId,
+          topicId: telegramConfig.topicId,
+          debugMode: appConfig.debug,
+          timestamp: new Date(),
+          additionalInfo: "Ошибка произошла до попытки отправки опроса (возможно, проблема с генерацией контента или конфигурацией)",
+        }
+      );
+    } catch (notificationError) {
+      // Don't throw - we've already logged the original error
+      logError("Failed to send failure notification for critical error", notificationError);
+    }
+    
     return {
       success: false,
       error: "Произошла ошибка при создании автоматического опроса",
