@@ -755,6 +755,7 @@ export const getYouthPeopleForLeader = async (
       });
 
       const personProperty = database.properties["Человек"] as any;
+      const leaderProperty = database.properties["Лидер"] as any;
 
       if (
         personProperty &&
@@ -767,32 +768,41 @@ export const getYouthPeopleForLeader = async (
         
         // If we have options from schema, filter by existing reports for this leader
         // to show only people that this leader has worked with
-        const response = await client.databases.query({
-          database_id: config.youthReportDatabase,
-          filter: {
-            property: "Лидер",
-            select: { equals: leader },
-          },
-          page_size: 100,
-        });
-
+        // Handle pagination to get all records
         const peopleSet = new Set<string>();
-        response.results.forEach((page: any) => {
-          const personProp = page.properties["Человек"] as NotionSelect;
-          if (personProp?.select?.name) {
-            peopleSet.add(personProp.select.name);
-          }
-        });
+        let hasMore = true;
+        let nextCursor: string | undefined = undefined;
+
+        while (hasMore) {
+          const response = await client.databases.query({
+            database_id: config.youthReportDatabase,
+            filter: {
+              property: "Лидер",
+              select: { equals: leader },
+            },
+            page_size: 100,
+            start_cursor: nextCursor,
+          });
+
+          response.results.forEach((page: any) => {
+            const personProp = page.properties["Человек"] as NotionSelect;
+            if (personProp?.select?.name) {
+              peopleSet.add(personProp.select.name);
+            }
+          });
+
+          hasMore = response.has_more || false;
+          nextCursor = response.next_cursor || undefined;
+        }
 
         const people = Array.from(peopleSet).sort();
         
-        // If no reports found, return all options from schema
+        // If no reports found, return empty array (don't show all options)
         if (people.length === 0) {
-          logInfo("No reports found for leader, returning all schema options", {
+          logInfo("No reports found for leader", {
             leader,
-            optionsCount: allOptions.length,
           });
-          return allOptions;
+          return [];
         }
 
         logInfo(`Retrieved ${people.length} people for leader from reports`, {
@@ -806,23 +816,32 @@ export const getYouthPeopleForLeader = async (
     }
 
     // Fallback: get unique values from existing records filtered by leader
-    const response = await client.databases.query({
-      database_id: config.youthReportDatabase,
-      filter: {
-        property: "Лидер",
-        select: { equals: leader },
-      },
-      page_size: 100,
-    });
-
+    // Handle pagination for fallback query too
     const peopleSet = new Set<string>();
+    let hasMore = true;
+    let nextCursor: string | undefined = undefined;
 
-    response.results.forEach((page: any) => {
-      const personProp = page.properties["Человек"] as NotionSelect;
-      if (personProp?.select?.name) {
-        peopleSet.add(personProp.select.name);
-      }
-    });
+    while (hasMore) {
+      const response = await client.databases.query({
+        database_id: config.youthReportDatabase,
+        filter: {
+          property: "Лидер",
+          select: { equals: leader },
+        },
+        page_size: 100,
+        start_cursor: nextCursor,
+      });
+
+      response.results.forEach((page: any) => {
+        const personProp = page.properties["Человек"] as NotionSelect;
+        if (personProp?.select?.name) {
+          peopleSet.add(personProp.select.name);
+        }
+      });
+
+      hasMore = response.has_more || false;
+      nextCursor = response.next_cursor ? response.next_cursor : undefined;
+    }
 
     const people = Array.from(peopleSet).sort();
     
