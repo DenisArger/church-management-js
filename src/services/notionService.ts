@@ -739,7 +739,32 @@ export const getYouthPeopleForLeader = async (
     const config = getNotionConfig();
 
     if (!config.youthReportDatabase) {
-      logError("NOTION_YOUTH_REPORT_DATABASE not configured");
+      const errorMessage = "NOTION_YOUTH_REPORT_DATABASE not configured";
+      logError(errorMessage);
+      
+      // Try to send notification to admin (but don't fail if it doesn't work)
+      try {
+        const { getTelegramConfig } = await import("../config/environment");
+        const { sendMessageToUser } = await import("../services/telegramService");
+        const telegramConfig = getTelegramConfig();
+        const adminUsers = telegramConfig.allowedUsers;
+        
+        if (adminUsers.length > 0) {
+          const adminUserId = adminUsers[0];
+          const message = `❌ ОШИБКА: Не удалось сформировать список людей для лидера\n\n` +
+            `Лидер: ${leader}\n` +
+            `Ошибка: ${errorMessage}\n\n` +
+            `Пожалуйста, проверьте настройку переменной окружения NOTION_YOUTH_REPORT_DATABASE.`;
+          
+          await sendMessageToUser(adminUserId, message).catch(() => {
+            // Ignore notification errors
+          });
+        }
+      } catch (notificationError) {
+        // Ignore notification errors - we don't want to break the main flow
+        logWarn("Failed to send admin notification for missing database config", notificationError);
+      }
+      
       return [];
     }
 

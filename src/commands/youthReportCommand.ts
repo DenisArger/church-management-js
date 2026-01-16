@@ -33,6 +33,79 @@ import {
 } from "../utils/youthReportFormBuilder";
 
 /**
+ * Send notification to administrator about failure to get people list for leader
+ */
+const sendYouthReportPeopleListFailureNotification = async (
+  leader: string,
+  userId: number,
+  chatId: number,
+  errorMessage: string,
+  context?: {
+    databaseId?: string;
+    additionalInfo?: string;
+  }
+): Promise<void> => {
+  try {
+    const telegramConfig = getTelegramConfig();
+    
+    // Get first allowed user as administrator
+    const adminUsers = telegramConfig.allowedUsers;
+    if (adminUsers.length === 0) {
+      logWarn("No allowed users configured for youth report failure notifications");
+      return;
+    }
+    
+    const adminUserId = adminUsers[0];
+    const timestamp = new Date();
+    
+    // Build detailed error message
+    let message = `❌ ОШИБКА: Не удалось сформировать список людей для лидера\n\n`;
+    message += `Лидер: ${leader}\n`;
+    message += `Telegram ID пользователя: ${userId}\n`;
+    message += `Chat ID: ${chatId}\n`;
+    message += `Время ошибки: ${timestamp.toLocaleString("ru-RU")}\n\n`;
+    message += `Ошибка: ${errorMessage}\n\n`;
+    
+    if (context?.databaseId) {
+      message += `ID базы данных: ${context.databaseId}\n`;
+    }
+    
+    if (context?.additionalInfo) {
+      message += `\nДополнительная информация: ${context.additionalInfo}`;
+    }
+    
+    message += `\n\nПожалуйста, проверьте:\n`;
+    message += `1. Настройки базы данных Notion (NOTION_YOUTH_REPORT_DATABASE)\n`;
+    message += `2. Права доступа к базе данных\n`;
+    message += `3. Наличие записей для лидера "${leader}" в базе данных\n`;
+    message += `4. Логи для дополнительной информации`;
+    
+    const result = await sendMessageToUser(adminUserId, message);
+    
+    if (result.success) {
+      logInfo("Youth report people list failure notification sent to administrator", {
+        adminUserId,
+        leader,
+        userId,
+      });
+    } else {
+      logError("Failed to send youth report people list failure notification to administrator", {
+        adminUserId,
+        error: result.error,
+        leader,
+        userId,
+      });
+    }
+  } catch (error) {
+    logError("Error sending youth report people list failure notification", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      leader,
+      userId,
+    });
+  }
+};
+
+/**
  * Execute /youth_report command
  * If no parameters and no active state, start the form
  * If active state exists, handle text input
@@ -75,13 +148,55 @@ export const executeYouthReportCommand = async (
     const state = initYouthReportState(userId, chatId, leader);
 
     // Get list of people for this leader
-    const people = await getYouthPeopleForLeader(leader);
+    let people: string[] = [];
+    try {
+      people = await getYouthPeopleForLeader(leader);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logError("Error getting youth people for leader", {
+        leader,
+        userId,
+        error: errorMessage,
+      });
+      
+      const errorResult = {
+        success: false,
+        error: "Произошла ошибка при получении списка людей. Обратитесь к администратору.",
+      };
+      await sendMessage(chatId, errorResult.error);
+      
+      // Send notification to administrator
+      await sendYouthReportPeopleListFailureNotification(
+        leader,
+        userId,
+        chatId,
+        `Исключение при получении списка людей: ${errorMessage}`,
+        {
+          additionalInfo: `Тип ошибки: ${error instanceof Error ? error.constructor.name : typeof error}`,
+        }
+      );
+      
+      return errorResult;
+    }
+    
     if (people.length === 0) {
       const errorResult = {
         success: false,
         error: "Не найдены люди, закрепленные за вами. Обратитесь к администратору.",
       };
       await sendMessage(chatId, errorResult.error);
+      
+      // Send notification to administrator
+      await sendYouthReportPeopleListFailureNotification(
+        leader,
+        userId,
+        chatId,
+        "Список людей пуст - не найдено записей для лидера в базе данных",
+        {
+          additionalInfo: "Возможно, для этого лидера еще не созданы отчеты в базе данных.",
+        }
+      );
+      
       return errorResult;
     }
 
