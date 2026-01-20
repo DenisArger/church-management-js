@@ -6,22 +6,23 @@
  */
 
 const { config } = require("dotenv");
+const requireDist = require("./require-dist");
 const {
   executeAutoPollForEvent,
   sendPollNotification,
-} = require("./dist/src/commands/autoPollCommand");
-const { getAppConfig, getTelegramConfig } = require("./dist/src/config/environment");
-const { getTelegramConfigForMode } = require("./dist/src/services/telegramService");
-const { generatePollContent } = require("./dist/src/utils/pollTextGenerator");
+} = requireDist("commands/autoPollCommand");
+const { getAppConfig, getTelegramConfig } = requireDist("config/environment");
+const { getTelegramConfigForMode } = requireDist("services/telegramService");
+const { generatePollContent } = requireDist("utils/pollTextGenerator");
 const {
   getYouthEventForTomorrow,
   getYouthEventsForDateRange,
-} = require("./dist/src/services/notionService");
+} = requireDist("services/notionService");
 const {
   calculatePollSendTime,
   shouldSendPoll,
   shouldSendNotification,
-} = require("./dist/src/utils/pollScheduler");
+} = requireDist("utils/pollScheduler");
 
 // Load environment variables
 config();
@@ -175,7 +176,7 @@ function testEnvironment() {
   console.log("🔧 Telegram Config for Mode:", {
     chatId: telegramConfigForMode.chatId,
     topicId: telegramConfigForMode.topicId,
-    isDebugBot: telegramConfigForMode.bot === require("./dist/src/services/telegramService").getDebugTelegramBot(),
+    isDebugBot: telegramConfigForMode.bot === requireDist("services/telegramService").getDebugTelegramBot(),
   });
 
   const requiredVars = [

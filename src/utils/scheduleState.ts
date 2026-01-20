@@ -4,39 +4,29 @@ import {
   ScheduleFormData,
 } from "../types";
 import { logInfo, logWarn } from "./logger";
+import * as stateStore from "./stateStore";
 
-// In-memory storage for user states
-const userStates = new Map<number, ScheduleState>();
+export async function getUserState(userId: number): Promise<ScheduleState | undefined> {
+  const raw = await stateStore.getState(userId, "schedule");
+  return raw != null ? (raw as unknown as ScheduleState) : undefined;
+}
 
-/**
- * Get state for a user
- */
-export const getUserState = (userId: number): ScheduleState | undefined => {
-  return userStates.get(userId);
-};
-
-/**
- * Set state for a user
- */
-export const setUserState = (
+export async function setUserState(
   userId: number,
   state: ScheduleState
-): void => {
-  userStates.set(userId, state);
+): Promise<void> {
+  await stateStore.setState(userId, "schedule", state as unknown as Record<string, unknown>);
   logInfo("Schedule state updated", {
     userId,
     step: state.step,
     mode: state.data.mode,
   });
-};
+}
 
-/**
- * Initialize new state for a user
- */
-export const initUserState = (
+export async function initUserState(
   userId: number,
   chatId: number
-): ScheduleState => {
+): Promise<ScheduleState> {
   const state: ScheduleState = {
     userId,
     chatId,
@@ -44,87 +34,62 @@ export const initUserState = (
     data: {},
     waitingForTextInput: false,
   };
-  setUserState(userId, state);
+  await setUserState(userId, state);
   return state;
-};
+}
 
-/**
- * Update step in user state
- */
-export const updateStep = (
+export async function updateStep(
   userId: number,
   step: ScheduleFormStep
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.step = step;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   } else {
     logWarn("Attempted to update step for non-existent state", { userId });
   }
-};
+}
 
-/**
- * Update data in user state
- */
-export const updateStateData = (
+export async function updateStateData(
   userId: number,
   updates: Partial<ScheduleFormData>
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.data = { ...state.data, ...updates };
-    setUserState(userId, state);
+    await setUserState(userId, state);
   } else {
     logWarn("Attempted to update data for non-existent state", { userId });
   }
-};
+}
 
-/**
- * Set waiting for text input flag
- */
-export const setWaitingForTextInput = (
+export async function setWaitingForTextInput(
   userId: number,
   waiting: boolean
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.waitingForTextInput = waiting;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   }
-};
+}
 
-/**
- * Set message ID for state
- */
-export const setMessageId = (userId: number, messageId: number): void => {
-  const state = getUserState(userId);
+export async function setMessageId(userId: number, messageId: number): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.messageId = messageId;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   }
-};
+}
 
-/**
- * Clear state for a user
- */
-export const clearUserState = (userId: number): void => {
-  const deleted = userStates.delete(userId);
-  if (deleted) {
-    logInfo("Schedule state cleared", { userId });
-  }
-};
+export async function clearUserState(userId: number): Promise<void> {
+  await stateStore.deleteState(userId, "schedule");
+  logInfo("Schedule state cleared", { userId });
+}
 
-/**
- * Check if user has active state
- */
-export const hasActiveState = (userId: number): boolean => {
-  return userStates.has(userId);
-};
-
-
-
-
-
-
+export async function hasActiveState(userId: number): Promise<boolean> {
+  const raw = await stateStore.getState(userId, "schedule");
+  return raw != null;
+}
 

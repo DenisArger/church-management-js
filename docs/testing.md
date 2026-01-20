@@ -57,7 +57,6 @@ ngrok http 8888
 - `/create_poll` - создание опроса
 - `/request_pray` - рассылка молитв
 - `/add_prayer Иван | Здоровье | current` - добавление молитвы
-- `/daily_scripture` - ежедневное чтение
 - `/request_state_sunday` - воскресное служение
 - `/weekly_schedule` - недельное расписание
 - `/prayer_week` - молитвы на неделю

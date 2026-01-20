@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client";
+import { createClient } from "@supabase/supabase-js";
 import {
   PrayerNeed,
   CalendarItem,
@@ -1001,12 +1002,33 @@ export const getYouthLeadersMapping = async (): Promise<Map<number, string>> => 
   }
 
   try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data, error } = await supabase
+          .from("youth_leaders")
+          .select("telegram_id, name")
+          .eq("is_active", true);
+        if (!error && data && data.length > 0) {
+          const mapping = new Map<number, string>();
+          data.forEach((r) => mapping.set(Number(r.telegram_id), r.name));
+          youthLeadersCache = mapping;
+          youthLeadersCacheTimestamp = now;
+          logInfo(`Loaded ${mapping.size} youth leaders from Supabase`);
+          return mapping;
+        }
+      } catch (e) {
+        logWarn("Supabase youth_leaders load failed, trying Notion", e);
+      }
+    }
+
     const client = getNotionClient();
     const config = getNotionConfig();
 
     if (!config.youthLeadersDatabase) {
       logWarn("NOTION_YOUTH_LEADERS_DATABASE not configured, falling back to env");
-      // Fallback на переменную окружения для обратной совместимости
       return getYouthLeadersFromEnv();
     }
 

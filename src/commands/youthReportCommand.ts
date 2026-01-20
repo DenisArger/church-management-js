@@ -1,4 +1,4 @@
-import { CommandResult } from "../types";
+import { CommandResult, YouthReportState } from "../types";
 import { sendMessage, answerCallbackQuery, sendMessageToUser } from "../services/telegramService";
 import { 
   createYouthReportRecord, 
@@ -118,12 +118,12 @@ export const executeYouthReportCommand = async (
   logInfo("Executing youth report command", { userId, chatId, params });
 
   // Check if user has active youth report form state
-  const hasActiveState = hasActiveYouthReportState(userId);
+  const hasActiveState = await hasActiveYouthReportState(userId);
 
   if (hasActiveState) {
     // If params is empty, this is a command (not text input) - clear state and start new form
     if (params.length === 0) {
-      clearYouthReportState(userId);
+      await clearYouthReportState(userId);
       // Fall through to start new form
     } else {
       // Handle text input
@@ -145,7 +145,7 @@ export const executeYouthReportCommand = async (
     }
 
     // Initialize state
-    const state = initYouthReportState(userId, chatId, leader);
+    const state = await initYouthReportState(userId, chatId, leader);
 
     // Get list of people for this leader
     let people: string[] = [];
@@ -201,7 +201,7 @@ export const executeYouthReportCommand = async (
     }
 
     // Store people list in state for callback data decoding
-    updateYouthReportData(userId, { peopleList: people });
+    await updateYouthReportData(userId, { peopleList: people });
 
     // Send initial message with person selection
     const keyboard = buildPersonSelectionKeyboard(people);
@@ -212,7 +212,7 @@ export const executeYouthReportCommand = async (
     });
 
     if (result.success && result.data?.messageId) {
-      setMessageId(userId, result.data.messageId as number);
+      await setMessageId(userId, result.data.messageId as number);
     }
 
     return result;
@@ -239,7 +239,7 @@ export const handleYouthReportCallback = async (
   logInfo("Handling youth report callback", { userId, callbackData });
 
   try {
-    const state = getYouthReportState(userId);
+    const state = await getYouthReportState(userId);
     if (!state) {
       return {
         success: false,
@@ -249,7 +249,7 @@ export const handleYouthReportCallback = async (
 
     // Update message ID if provided
     if (messageId) {
-      setMessageId(userId, messageId);
+      await setMessageId(userId, messageId);
     }
 
     const parts = callbackData.split(":");
@@ -291,7 +291,7 @@ const handlePersonSelection = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -311,9 +311,9 @@ const handlePersonSelection = async (
     const personName = peopleList[index];
     
     // Save person name
-    updateYouthReportData(userId, { person: personName });
-    updateYouthReportStep(userId, "communication");
-    setWaitingForTextInput(userId, false);
+    await updateYouthReportData(userId, { person: personName });
+    await updateYouthReportStep(userId, "communication");
+    await setWaitingForTextInput(userId, false);
 
     const message = getStepMessage("communication", { ...state.data, person: personName });
     const keyboard = buildCommunicationKeyboard(state.data.communicationTypes || []);
@@ -334,7 +334,7 @@ const handleCommunicationSelection = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -351,8 +351,8 @@ const handleCommunicationSelection = async (
       );
     }
     
-    updateYouthReportStep(userId, "events");
-    setWaitingForTextInput(userId, false);
+    await updateYouthReportStep(userId, "events");
+    await setWaitingForTextInput(userId, false);
 
     const message = getStepMessage("events", state.data);
     const keyboard = buildEventsKeyboard(state.data.events || []);
@@ -383,8 +383,8 @@ const handleCommunicationSelection = async (
     
     if (communicationType === "Другое") {
       // Request text input for "Другое"
-      updateYouthReportData(userId, { waitingForOtherText: "communication" });
-      setWaitingForTextInput(userId, true);
+      await updateYouthReportData(userId, { waitingForOtherText: "communication" });
+      await setWaitingForTextInput(userId, true);
       
       return await sendMessage(
         chatId,
@@ -401,7 +401,7 @@ const handleCommunicationSelection = async (
       newTypes = [...currentTypes, communicationType];
     }
 
-    updateYouthReportData(userId, { communicationTypes: newTypes });
+    await updateYouthReportData(userId, { communicationTypes: newTypes });
 
     // Update keyboard with new selection
     const message = getStepMessage("communication", state.data);
@@ -423,7 +423,7 @@ const handleEventsSelection = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -432,8 +432,8 @@ const handleEventsSelection = async (
   // Handle "done" action
   if (parts[2] === "done") {
     // User clicked "Готово"
-    updateYouthReportStep(userId, "help");
-    setWaitingForTextInput(userId, true);
+    await updateYouthReportStep(userId, "help");
+    await setWaitingForTextInput(userId, true);
 
     const message = getStepMessage("help", state.data);
     const keyboard = buildSkipKeyboard("help");
@@ -464,8 +464,8 @@ const handleEventsSelection = async (
     
     if (eventType === "Другое") {
       // Request text input for "Другое"
-      updateYouthReportData(userId, { waitingForOtherText: "events" });
-      setWaitingForTextInput(userId, true);
+      await updateYouthReportData(userId, { waitingForOtherText: "events" });
+      await setWaitingForTextInput(userId, true);
       
       return await sendMessage(
         chatId,
@@ -482,7 +482,7 @@ const handleEventsSelection = async (
       newEvents = [...currentEvents, eventType];
     }
 
-    updateYouthReportData(userId, { events: newEvents });
+    await updateYouthReportData(userId, { events: newEvents });
 
     // Update keyboard with new selection
     const message = getStepMessage("events", state.data);
@@ -504,7 +504,7 @@ const handleEdit = async (
   userId: number,
   chatId: number,
   field: string | undefined,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -529,8 +529,8 @@ const handleEdit = async (
           error: "Не найдены люди, закрепленные за вами.",
         };
       }
-      updateYouthReportData(userId, { peopleList: people });
-      updateYouthReportStep(userId, "person");
+      await updateYouthReportData(userId, { peopleList: people });
+      await updateYouthReportStep(userId, "person");
       const personKeyboard = buildPersonSelectionKeyboard(people);
       const personMessage = getStepMessage("person", state.data);
       return await sendMessage(chatId, personMessage, {
@@ -539,8 +539,8 @@ const handleEdit = async (
       });
 
     case "communication":
-      updateYouthReportStep(userId, "communication");
-      setWaitingForTextInput(userId, false);
+      await updateYouthReportStep(userId, "communication");
+      await setWaitingForTextInput(userId, false);
       const commMessage = getStepMessage("communication", state.data);
       const commKeyboard = buildCommunicationKeyboard(state.data.communicationTypes || []);
       return await sendMessage(chatId, commMessage, {
@@ -549,8 +549,8 @@ const handleEdit = async (
       });
 
     case "events":
-      updateYouthReportStep(userId, "events");
-      setWaitingForTextInput(userId, false);
+      await updateYouthReportStep(userId, "events");
+      await setWaitingForTextInput(userId, false);
       const eventsMessage = getStepMessage("events", state.data);
       const eventsKeyboard = buildEventsKeyboard(state.data.events || []);
       return await sendMessage(chatId, eventsMessage, {
@@ -559,8 +559,8 @@ const handleEdit = async (
       });
 
     case "help":
-      updateYouthReportStep(userId, "help");
-      setWaitingForTextInput(userId, true);
+      await updateYouthReportStep(userId, "help");
+      await setWaitingForTextInput(userId, true);
       const helpMessage = getStepMessage("help", state.data);
       const helpKeyboard = buildSkipKeyboard("help");
       return await sendMessage(chatId, helpMessage, {
@@ -569,8 +569,8 @@ const handleEdit = async (
       });
 
     case "note":
-      updateYouthReportStep(userId, "note");
-      setWaitingForTextInput(userId, true);
+      await updateYouthReportStep(userId, "note");
+      await setWaitingForTextInput(userId, true);
       const noteMessage = getStepMessage("note", state.data);
       const noteKeyboard = buildSkipKeyboard("note");
       return await sendMessage(chatId, noteMessage, {
@@ -590,15 +590,15 @@ const handleSkip = async (
   userId: number,
   chatId: number,
   step: string | undefined,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   if (step === "help") {
     // Skip help field
-    updateYouthReportData(userId, { help: "" });
-    updateYouthReportStep(userId, "note");
-    setWaitingForTextInput(userId, true);
+    await updateYouthReportData(userId, { help: "" });
+    await updateYouthReportStep(userId, "note");
+    await setWaitingForTextInput(userId, true);
 
     const message = getStepMessage("note", state.data);
     const keyboard = buildSkipKeyboard("note");
@@ -609,9 +609,9 @@ const handleSkip = async (
     });
   } else if (step === "note") {
     // Skip note field
-    updateYouthReportData(userId, { note: "" });
-    updateYouthReportStep(userId, "review");
-    setWaitingForTextInput(userId, false);
+    await updateYouthReportData(userId, { note: "" });
+    await updateYouthReportStep(userId, "review");
+    await setWaitingForTextInput(userId, false);
 
     const reviewMessage = formatPreviewMessage(state.data);
     const keyboard = buildReviewKeyboard();
@@ -633,7 +633,7 @@ const handleYouthReportTextInput = async (
   chatId: number,
   text: string
 ): Promise<CommandResult> => {
-  const state = getYouthReportState(userId);
+  const state = await getYouthReportState(userId);
   if (!state) {
     return {
       success: false,
@@ -650,9 +650,9 @@ const handleYouthReportTextInput = async (
     if (state.step === "help" || state.step === "note") {
       // Skip optional fields
       if (state.step === "help") {
-        updateYouthReportData(userId, { help: "" });
-        updateYouthReportStep(userId, "note");
-        setWaitingForTextInput(userId, true);
+        await updateYouthReportData(userId, { help: "" });
+        await updateYouthReportStep(userId, "note");
+        await setWaitingForTextInput(userId, true);
         const message = getStepMessage("note", state.data);
         const keyboard = buildSkipKeyboard("note");
         return await sendMessage(chatId, message, {
@@ -660,9 +660,9 @@ const handleYouthReportTextInput = async (
           parse_mode: "HTML",
         });
       } else if (state.step === "note") {
-        updateYouthReportData(userId, { note: "" });
-        updateYouthReportStep(userId, "review");
-        setWaitingForTextInput(userId, false);
+        await updateYouthReportData(userId, { note: "" });
+        await updateYouthReportStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
         const reviewMessage = formatPreviewMessage(state.data);
         const keyboard = buildReviewKeyboard();
         return await sendMessage(chatId, reviewMessage, {
@@ -686,15 +686,15 @@ const handleYouthReportTextInput = async (
       if (!currentTypes.includes("Другое")) {
         currentTypes.push("Другое");
       }
-      updateYouthReportData(userId, {
+      await updateYouthReportData(userId, {
         communicationTypes: currentTypes,
         communicationOther: trimmedText,
         waitingForOtherText: null,
       });
-      setWaitingForTextInput(userId, false);
+      await setWaitingForTextInput(userId, false);
       
       // Continue to events
-      updateYouthReportStep(userId, "events");
+      await updateYouthReportStep(userId, "events");
       const message = getStepMessage("events", { ...state.data, communicationOther: trimmedText });
       const keyboard = buildEventsKeyboard(state.data.events || []);
       return await sendMessage(chatId, message, {
@@ -707,15 +707,15 @@ const handleYouthReportTextInput = async (
       if (!currentEvents.includes("Другое")) {
         currentEvents.push("Другое");
       }
-      updateYouthReportData(userId, {
+      await updateYouthReportData(userId, {
         events: currentEvents,
         eventsOther: trimmedText,
         waitingForOtherText: null,
       });
-      setWaitingForTextInput(userId, true);
+      await setWaitingForTextInput(userId, true);
       
       // Continue to help
-      updateYouthReportStep(userId, "help");
+      await updateYouthReportStep(userId, "help");
       const message = getStepMessage("help", { ...state.data, eventsOther: trimmedText });
       const keyboard = buildSkipKeyboard("help");
       return await sendMessage(chatId, message, {
@@ -727,9 +727,9 @@ const handleYouthReportTextInput = async (
 
   // Handle regular text input
   if (state.step === "help") {
-    updateYouthReportData(userId, { help: trimmedText });
-    updateYouthReportStep(userId, "note");
-    setWaitingForTextInput(userId, true);
+    await updateYouthReportData(userId, { help: trimmedText });
+    await updateYouthReportStep(userId, "note");
+    await setWaitingForTextInput(userId, true);
 
     const message = getStepMessage("note", { ...state.data, help: trimmedText });
     const keyboard = buildSkipKeyboard("note");
@@ -738,9 +738,9 @@ const handleYouthReportTextInput = async (
       parse_mode: "HTML",
     });
   } else if (state.step === "note") {
-    updateYouthReportData(userId, { note: trimmedText });
-    updateYouthReportStep(userId, "review");
-    setWaitingForTextInput(userId, false);
+    await updateYouthReportData(userId, { note: trimmedText });
+    await updateYouthReportStep(userId, "review");
+    await setWaitingForTextInput(userId, false);
 
     const reviewMessage = formatPreviewMessage({ ...state.data, note: trimmedText });
     const keyboard = buildReviewKeyboard();
@@ -840,7 +840,7 @@ const sendAdminNotification = async (
 const handleConfirm = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -917,7 +917,7 @@ ${reportInput.note ? `📝 <b>Примечание:</b> ${reportInput.note}\n` :
       });
 
       // Clear state
-      clearYouthReportState(userId);
+      await clearYouthReportState(userId);
 
       return await sendMessage(chatId, successMessage, { parse_mode: "HTML" });
     } else {
@@ -967,9 +967,9 @@ ${reportInput.note ? `📝 <b>Примечание:</b> ${reportInput.note}\n` :
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getYouthReportState>
+  state: YouthReportState | undefined
 ): Promise<CommandResult> => {
-  clearYouthReportState(userId);
+  await clearYouthReportState(userId);
   return await sendMessage(
     chatId,
     "❌ Заполнение отчета отменено.",

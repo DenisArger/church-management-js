@@ -53,6 +53,15 @@ bash test-bot-webhook.sh set-netlify https://f5fa2ef2--church-telegram-bot.netli
 - `/youth` - создание опроса для молодежи
 - `/debug` - отладочные команды
 
+### Скрипты тестов (из корня проекта):
+
+- `yarn test` — сборка + **test-calendar** (экспорты, formatServiceInfo, getSundayMeeting, getWeeklySchedule)
+- `yarn test:poll` — сборка + test-auto-poll (text, scheduler)
+- `yarn test:integration` — полный прогон: test-calendar, test-auto-poll, test-youth-poll (нужны Notion, Telegram)
+- `bash scripts/test/test-debug.sh http://localhost:3000` — /health и /webhook (перед этим: `yarn debug:server`)
+
+Подробнее: [scripts/test/README.md](scripts/test/README.md).
+
 ### Логи и отладка:
 
 #### Просмотр логов Netlify dev:

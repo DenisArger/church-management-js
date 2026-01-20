@@ -5,7 +5,6 @@ import {
   executeAllPrayersCommand,
   executeOldPrayersCommand,
 } from "../commands/prayerRequestCommand";
-// import { executeDailyScriptureCommand } from "../commands/dailyScriptureCommand"; // Disabled: functionality not needed
 import { executeRequestStateSundayCommand } from "../commands/requestStateSundayCommand";
 import { executeDebugCalendarCommand } from "../commands/debugCalendarCommand";
 import { executeTestNotionCommand } from "../commands/testNotionCommand";
@@ -37,15 +36,7 @@ import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
 import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
-import {
-  hasActiveState,
-  getUserState,
-  updateStateData,
-  updateStep,
-  setWaitingForTextInput,
-  getCurrentStream,
-  saveCurrentStreamData,
-} from "../utils/sundayServiceState";
+import { hasActiveState } from "../utils/sundayServiceState";
 import {
   hasActiveState as hasActiveScheduleState,
 } from "../utils/scheduleState";
@@ -55,21 +46,8 @@ import {
 import {
   hasActiveYouthReportState,
 } from "../utils/youthReportState";
-import {
-  isScriptureSchedule,
-  parseScriptureSchedule,
-  ParsedScheduleEntry,
-} from "../utils/scriptureScheduleParser";
-import {
-  getStepMessage,
-  buildReviewKeyboard,
-} from "../utils/sundayServiceFormBuilder";
-import {
-  getSundayServiceByDate,
-  createSundayService,
-  updateSundayService,
-} from "../services/calendarService";
-import { formatDateForNotion } from "../utils/dateHelper";
+import { isScriptureSchedule } from "../utils/scriptureScheduleParser";
+import { handleScriptureScheduleMessage } from "./scriptureScheduleHandler";
 
 export const handleUpdate = async (
   update: TelegramUpdate
@@ -106,6 +84,7 @@ export const handleMessage = async (
     chatId,
     chatType,
     text: text?.substring(0, 100),
+    command: text?.trim().split(" ")[0] ?? null,
   });
 
   if (!text) {
@@ -132,25 +111,25 @@ export const handleMessage = async (
   }
 
   // Check if user is in Sunday service form filling process
-  if (!isCommand && chatType === "private" && hasActiveState(userId)) {
+  if (!isCommand && chatType === "private" && (await hasActiveState(userId))) {
     // Handle regular text input for Sunday service form
     return await handleSundayServiceTextInput(userId, chatId, text);
   }
 
   // Check if user is in schedule form filling process
-  if (!isCommand && chatType === "private" && hasActiveScheduleState(userId)) {
+  if (!isCommand && chatType === "private" && (await hasActiveScheduleState(userId))) {
     // Handle regular text input for schedule form
     return await handleScheduleTextInput(userId, chatId, text);
   }
 
   // Check if user is in prayer form filling process
-  if (!isCommand && chatType === "private" && hasActivePrayerState(userId)) {
+  if (!isCommand && chatType === "private" && (await hasActivePrayerState(userId))) {
     // Handle regular text input for prayer form
     return await executeAddPrayerCommand(userId, chatId, [text]);
   }
 
   // Check if user is in youth report form filling process
-  if (!isCommand && chatType === "private" && hasActiveYouthReportState(userId)) {
+  if (!isCommand && chatType === "private" && (await hasActiveYouthReportState(userId))) {
     // Handle regular text input for youth report form
     return await executeYouthReportCommand(userId, chatId, [text]);
   }
@@ -192,10 +171,6 @@ export const handleMessage = async (
 
     case "/request_pray":
       return await executePrayerRequestCommand(userId, chatId, params);
-
-    // case "/daily_scripture":
-    //   return await executeDailyScriptureCommand(userId, chatId);
-    // Disabled: functionality not needed
 
     case "/request_state_sunday":
       return await executeRequestStateSundayCommand(userId, chatId);
@@ -247,352 +222,6 @@ export const handleMessage = async (
   }
 };
 
-/**
- * Process single schedule entry - update or create Sunday service
- */
-const processScheduleEntry = async (
-  entry: ParsedScheduleEntry,
-  stream: "1" | "2"
-): Promise<{ success: boolean; updated: boolean; created: boolean }> => {
-  try {
-    const reader = stream === "1" ? entry.stream1Reader : entry.stream2Reader;
-    
-    logInfo("Processing schedule entry", {
-      date: formatDateForNotion(entry.date),
-      dateISO: entry.date.toISOString(),
-      stream,
-      scriptureReading: entry.scriptureReading,
-      reader,
-    });
-    
-    // Check if service already exists
-    const existingService = await getSundayServiceByDate(entry.date, stream);
-    
-    if (existingService) {
-      logInfo("Service exists, updating", {
-        serviceId: existingService.id,
-        date: formatDateForNotion(entry.date),
-        stream,
-      });
-      
-      // Update existing service - only scripture reading and reader
-      // Don't update date, only update scripture reading and reader fields
-      const updateData: import("../types").SundayServiceFormData = {
-        scriptureReading: entry.scriptureReading,
-        mode: "edit",
-        stream: stream,
-      };
-      
-      // Always set reader field - if undefined, set to undefined explicitly to clear it
-      // This ensures the field is updated even if it was not specified in the schedule
-      updateData.scriptureReader = reader !== undefined ? (reader || undefined) : undefined;
-      
-      logInfo("Updating service with data", {
-        serviceId: existingService.id,
-        stream,
-        scriptureReading: entry.scriptureReading,
-        reader,
-        updateData: {
-          scriptureReading: updateData.scriptureReading,
-          scriptureReader: updateData.scriptureReader,
-        },
-      });
-      
-      const result = await updateSundayService(
-        existingService.id,
-        updateData,
-        stream
-      );
-      
-      if (!result.success) {
-        logWarn("Failed to update service", {
-          error: result.error,
-          serviceId: existingService.id,
-          stream,
-          updateData,
-        });
-      } else {
-        logInfo("Service updated successfully", {
-          serviceId: existingService.id,
-          stream,
-        });
-      }
-      
-      return {
-        success: result.success,
-        updated: result.success,
-        created: false,
-      };
-    } else {
-      logInfo("Service does not exist, creating", {
-        date: formatDateForNotion(entry.date),
-        dateISO: entry.date.toISOString(),
-        stream,
-      });
-      
-      // Create new service with minimal data
-      const createData: import("../types").SundayServiceFormData = {
-        date: entry.date,
-        scriptureReading: entry.scriptureReading,
-        mode: "create",
-        stream: stream,
-      };
-      
-      // Only add reader if specified
-      if (reader) {
-        createData.scriptureReader = reader;
-      }
-      
-      const result = await createSundayService(createData, stream);
-      
-      if (!result.success) {
-        logWarn("Failed to create service", {
-          error: result.error,
-          date: formatDateForNotion(entry.date),
-          stream,
-          createData,
-        });
-      } else {
-        logInfo("Service created successfully", {
-          date: formatDateForNotion(entry.date),
-          stream,
-          pageId: result.data?.pageId,
-        });
-      }
-      
-      return {
-        success: result.success,
-        updated: false,
-        created: result.success,
-      };
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    logWarn("Error processing schedule entry", {
-      error: errorMessage,
-      errorStack,
-      entry: {
-        date: entry.date.toISOString(),
-        scriptureReading: entry.scriptureReading,
-        stream1Reader: entry.stream1Reader,
-        stream2Reader: entry.stream2Reader,
-      },
-      stream,
-    });
-    return { success: false, updated: false, created: false };
-  }
-};
-
-/**
- * Handle forwarded message or message with scripture schedule
- * If date is selected in form - process only that date
- * Otherwise - process all dates from schedule
- */
-const handleScriptureScheduleMessage = async (
-  userId: number,
-  chatId: number,
-  text: string
-): Promise<CommandResult> => {
-  try {
-    // Parse schedule from message
-    const schedule = parseScriptureSchedule(text);
-    if (schedule.length === 0) {
-      logInfo("No schedule entries found in message", { userId });
-      return await sendMessage(
-        chatId,
-        "❌ Не удалось распарсить график. Проверьте формат сообщения.",
-        { parse_mode: "HTML" }
-      );
-    }
-
-    // Get current user state
-    const state = getUserState(userId);
-    const hasSelectedDate = state && state.data.date;
-
-    if (hasSelectedDate) {
-      // Process only selected date
-      return await handleSelectedDateSchedule(userId, chatId, schedule, state!);
-    } else {
-      // Process all dates from schedule
-      return await handleAllDatesSchedule(userId, chatId, schedule);
-    }
-  } catch (error) {
-    logWarn("Error handling scripture schedule message", error);
-    return {
-      success: false,
-      error: "Произошла ошибка при обработке графика",
-    };
-  }
-};
-
-/**
- * Handle schedule for selected date in form
- */
-const handleSelectedDateSchedule = async (
-  userId: number,
-  chatId: number,
-  schedule: ParsedScheduleEntry[],
-  state: ReturnType<typeof getUserState>
-): Promise<CommandResult> => {
-  if (!state || !state.data.date) {
-    return { success: false, error: "State or date not found" };
-  }
-
-  // Determine which stream we're working with
-  let targetStream: "1" | "2";
-  if (state.data.stream === "both") {
-    const currentStream = getCurrentStream(state);
-    if (!currentStream) {
-      return await sendMessage(
-        chatId,
-        "❌ Не выбран поток. Выберите поток для заполнения.",
-        { parse_mode: "HTML" }
-      );
-    }
-    targetStream = currentStream;
-  } else if (state.data.stream === "1" || state.data.stream === "2") {
-    targetStream = state.data.stream;
-  } else {
-    return await sendMessage(
-      chatId,
-      "❌ Не выбран поток. Выберите поток для заполнения.",
-      { parse_mode: "HTML" }
-    );
-  }
-
-  // Find matching entry
-  const normalizedTarget = new Date(state.data.date);
-  normalizedTarget.setHours(0, 0, 0, 0);
-
-  const entry = schedule.find((e) => {
-    const normalizedEntry = new Date(e.date);
-    normalizedEntry.setHours(0, 0, 0, 0);
-    return normalizedEntry.getTime() === normalizedTarget.getTime();
-  });
-
-  if (!entry) {
-    return await sendMessage(
-      chatId,
-      "❌ Не найдена соответствующая запись в графике для выбранной даты.",
-      { parse_mode: "HTML" }
-    );
-  }
-
-  // Auto-fill fields
-  const updates: Partial<typeof state.data> = {
-    scriptureReading: entry.scriptureReading,
-  };
-
-  // Fill reader only if it's not empty
-  const reader =
-    targetStream === "1" ? entry.stream1Reader : entry.stream2Reader;
-  if (reader) {
-    updates.scriptureReader = reader;
-  }
-
-  // For "both" streams mode, save current stream data before updating
-  if (state.data.stream === "both") {
-    saveCurrentStreamData(userId);
-  }
-
-  // Update state with new data
-  updateStateData(userId, updates);
-  setWaitingForTextInput(userId, false);
-
-  // Move to review step
-  updateStep(userId, "review");
-
-  // Get updated state
-  const updatedState = getUserState(userId);
-  if (!updatedState) {
-    return { success: false, error: "State not found after update" };
-  }
-
-  // Show preview with confirmation buttons
-  const reviewMessage = getStepMessage("review", updatedState.data);
-  const infoMessage = `✅ <b>Данные автоматически заполнены из графика!</b>\n\n${reviewMessage}`;
-  const reviewKeyboard = buildReviewKeyboard();
-
-  logInfo("Auto-filled scripture data from schedule", {
-    userId,
-    date: state.data.date,
-    stream: targetStream,
-    scriptureReading: entry.scriptureReading,
-    reader,
-  });
-
-  return await sendMessage(chatId, infoMessage, {
-    reply_markup: reviewKeyboard,
-    parse_mode: "HTML",
-  });
-};
-
-/**
- * Handle schedule for all dates - update/create services in Notion
- */
-const handleAllDatesSchedule = async (
-  userId: number,
-  chatId: number,
-  schedule: ParsedScheduleEntry[]
-): Promise<CommandResult> => {
-  let processed = 0;
-  let updated = 0;
-  let created = 0;
-  let errors = 0;
-
-  // Process each entry
-  for (const entry of schedule) {
-    // Process stream 1 if scripture reading is available
-    // (reader may be empty or undefined, but we still want to update scripture reading)
-    if (entry.scriptureReading) {
-      const result = await processScheduleEntry(entry, "1");
-      processed++;
-      if (result.success) {
-        if (result.updated) updated++;
-        if (result.created) created++;
-      } else {
-        errors++;
-      }
-    }
-
-    // Process stream 2 if scripture reading is available
-    // (reader may be empty or undefined, but we still want to update scripture reading)
-    if (entry.scriptureReading) {
-      const result = await processScheduleEntry(entry, "2");
-      processed++;
-      if (result.success) {
-        if (result.updated) updated++;
-        if (result.created) created++;
-      } else {
-        errors++;
-      }
-    }
-  }
-
-  // Build result message
-  let message = `✅ <b>График обработан!</b>\n\n`;
-  message += `📅 Обработано записей: ${processed}\n`;
-  if (created > 0) {
-    message += `➕ Создано новых: ${created}\n`;
-  }
-  if (updated > 0) {
-    message += `✏️ Обновлено существующих: ${updated}\n`;
-  }
-  if (errors > 0) {
-    message += `❌ Ошибок: ${errors}\n`;
-  }
-
-  logInfo("Processed all schedule entries", {
-    userId,
-    processed,
-    created,
-    updated,
-    errors,
-  });
-
-  return await sendMessage(chatId, message, { parse_mode: "HTML" });
-};
 
 const handlePrayerNeed = async (
   message: TelegramMessage
@@ -649,6 +278,7 @@ const handleCallbackQuery = async (
     userId,
     chatId,
     callbackData,
+    command: callbackData?.split(":")[0] ?? null,
   });
 
   // Check if it's a youth report callback - special authorization check
@@ -776,10 +406,6 @@ const handleCallbackQuery = async (
     switch (parsed.command) {
       case "request_pray":
         return await executePrayerRequestCommand(userId, chatId, params);
-
-      // case "daily_scripture":
-      //   return await executeDailyScriptureCommand(userId, chatId);
-      // Disabled: functionality not needed
 
       case "create_poll":
         return await executeCreatePollCommand(userId, chatId);

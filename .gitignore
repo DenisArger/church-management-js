@@ -4,7 +4,17 @@ dist
 .vscode
 package-lock.json
 
+# Jest
+coverage
 
+# Local Netlify / ngrok / webhook артефакты
+.netlify-dev.log
+.netlify-dev.pid
+.netlify-url
+.ngrok-url
+.ngrok.log
+.ngrok.pid
+.webhook-url
 
 # Local Netlify folder
 .netlify

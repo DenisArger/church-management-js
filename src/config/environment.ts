@@ -1,34 +1,36 @@
 import { config } from "dotenv";
+import { getAppConfigValue, getAllowedUsers } from "./appConfigStore";
 
 config();
 
 export const getTelegramConfig = () => {
-  const allowedUsersStr = process.env.ALLOWED_USERS;
   let allowedUsers: number[] = [];
-
-  if (allowedUsersStr) {
-    try {
-      allowedUsers = allowedUsersStr
-        .split(",")
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0)
-        .map(Number)
-        .filter((id) => !isNaN(id));
-    } catch (error) {
-      console.warn("Failed to parse ALLOWED_USERS:", error);
+  const fromSupabase = getAllowedUsers();
+  if (fromSupabase && fromSupabase.length > 0) {
+    allowedUsers = fromSupabase;
+  } else {
+    const allowedUsersStr = process.env.ALLOWED_USERS;
+    if (allowedUsersStr) {
+      try {
+        allowedUsers = allowedUsersStr
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0)
+          .map(Number)
+          .filter((id) => !isNaN(id));
+      } catch (error) {
+        console.warn("Failed to parse ALLOWED_USERS:", error);
+      }
     }
   }
 
   return {
     botToken: process.env.TELEGRAM_BOT_TOKEN!,
     allowedUsers,
-    mainChannelId: process.env.TELEGRAM_MAIN_CHANNEL_ID,
-    mainGroupId: process.env.TELEGRAM_MAIN_GROUP_ID,
-    youthGroupId: process.env.TELEGRAM_YOUTH_GROUP_ID,
-    // Debug configuration for testing
+    youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),
     debugBotToken: process.env.TELEGRAM_BOT_TOKEN_DEBUG,
-    debugChatId: process.env.TELEGRAM_CHAT_ID_DEBUG,
-    debugTopicId: process.env.TELEGRAM_TOPIC_ID_DEBUG,
+    debugChatId: getAppConfigValue("TELEGRAM_CHAT_ID_DEBUG"),
+    debugTopicId: getAppConfigValue("TELEGRAM_TOPIC_ID_DEBUG"),
   };
 };
 
@@ -43,14 +45,15 @@ export const getNotionConfig = () => ({
 });
 
 export const getAppConfig = () => {
-  // DEBUG mode is explicitly set to "true" or NODE_ENV is development AND DEBUG is not explicitly "false"
-  const isDebug = process.env.DEBUG === "true" || 
-    (process.env.NODE_ENV === "development" && process.env.DEBUG !== "false");
-  
+  const debugVal = getAppConfigValue("DEBUG") ?? process.env.DEBUG;
+  const nodeEnvVal = getAppConfigValue("NODE_ENV") ?? process.env.NODE_ENV;
+  const isDebug =
+    debugVal === "true" || (nodeEnvVal === "development" && debugVal !== "false");
+
   return {
-    nodeEnv: process.env.NODE_ENV || "development",
-    logLevel: process.env.LOG_LEVEL || "info",
-    logFormat: process.env.LOG_FORMAT || "json",
+    nodeEnv: nodeEnvVal || "development",
+    logLevel: getAppConfigValue("LOG_LEVEL") || "info",
+    logFormat: getAppConfigValue("LOG_FORMAT") || "json",
     debug: isDebug,
   };
 };

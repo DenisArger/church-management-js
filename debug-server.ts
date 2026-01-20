@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
-import { handleMessage } from "./src/handlers/messageHandler";
+import { handleUpdate } from "./src/handlers/messageHandler";
 import { validateEnvironment } from "./src/config/environment";
+import { ensureAppConfigLoaded } from "./src/config/appConfigStore";
 import { logInfo, logError } from "./src/utils/logger";
 
 // Validate environment on startup
@@ -22,13 +23,15 @@ app.use(express.json());
 // Webhook endpoint
 app.post("/webhook", async (req, res) => {
   try {
+    await ensureAppConfigLoaded();
     const update = req.body;
     logInfo("Received webhook update", {
       updateId: update.update_id,
       hasMessage: !!update.message,
+      hasCallbackQuery: !!update.callback_query,
     });
 
-    const result = await handleMessage(update);
+    const result = await handleUpdate(update);
 
     if (result.success) {
       logInfo("Message processed successfully", { result });

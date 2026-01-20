@@ -1,6 +1,8 @@
 # CalendarService
 
-**Файл**: `src/services/calendarService.ts`
+Реализация разбита на `src/services/calendar/sundayService.ts`, `weeklySchedule.ts`, `debug.ts`. Публичный API реэкспортируется через `calendarService.ts`.
+
+**Файл**: `src/services/calendarService.ts` (фасад), `src/services/calendar/` (подмодули)
 
 **Назначение**: Работа с календарем и расписанием служений.
 
@@ -27,9 +29,13 @@
 
 ## Недельное расписание
 
-- **`getWeeklySchedule()`** - получение расписания на предстоящую неделю
+- **`getWeeklySchedule()`** — получение расписания на предстоящую неделю
+- **`getScheduleServiceById(serviceId)`** — получение служения по ID
+- **`getScheduleServicesForWeek(weekType?)`** — служения на неделю (без фильтра «нужна рассылка»), для выбора при редактировании
+- **`createScheduleService(serviceData)`** — создание служения в Notion
+- **`updateScheduleService(serviceId, serviceData)`** — обновление служения в Notion
 
-**Фильтрация**:
+**Фильтрация** (для getWeeklySchedule):
 - События с флагом "нужна рассылка" (checkbox)
 - События на предстоящую неделю
 
@@ -54,6 +60,8 @@
 ---
 
 [← Назад к списку сервисов](README.md)
+
+
 
 
 

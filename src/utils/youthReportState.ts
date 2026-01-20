@@ -4,40 +4,30 @@ import {
   YouthReportFormData,
 } from "../types";
 import { logInfo, logWarn } from "./logger";
+import * as stateStore from "./stateStore";
 
-// In-memory storage for user states
-const userStates = new Map<number, YouthReportState>();
+export async function getYouthReportState(userId: number): Promise<YouthReportState | undefined> {
+  const raw = await stateStore.getState(userId, "youth_report");
+  return raw != null ? (raw as unknown as YouthReportState) : undefined;
+}
 
-/**
- * Get state for a user
- */
-export const getYouthReportState = (userId: number): YouthReportState | undefined => {
-  return userStates.get(userId);
-};
-
-/**
- * Set state for a user
- */
-export const setYouthReportState = (
+export async function setYouthReportState(
   userId: number,
   state: YouthReportState
-): void => {
-  userStates.set(userId, state);
+): Promise<void> {
+  await stateStore.setState(userId, "youth_report", state as unknown as Record<string, unknown>);
   logInfo("Youth report form state updated", {
     userId,
     step: state.step,
     person: state.data.person,
   });
-};
+}
 
-/**
- * Initialize new state for a user
- */
-export const initYouthReportState = (
+export async function initYouthReportState(
   userId: number,
   chatId: number,
   leader: string
-): YouthReportState => {
+): Promise<YouthReportState> {
   const state: YouthReportState = {
     userId,
     chatId,
@@ -48,85 +38,62 @@ export const initYouthReportState = (
     },
     waitingForTextInput: false,
   };
-  setYouthReportState(userId, state);
+  await setYouthReportState(userId, state);
   return state;
-};
+}
 
-/**
- * Update step in user state
- */
-export const updateYouthReportStep = (
+export async function updateYouthReportStep(
   userId: number,
   step: YouthReportFormStep
-): void => {
-  const state = getYouthReportState(userId);
+): Promise<void> {
+  const state = await getYouthReportState(userId);
   if (state) {
     state.step = step;
-    setYouthReportState(userId, state);
+    await setYouthReportState(userId, state);
   } else {
     logWarn("Attempted to update step for non-existent youth report state", { userId });
   }
-};
+}
 
-/**
- * Update data in user state
- */
-export const updateYouthReportData = (
+export async function updateYouthReportData(
   userId: number,
   updates: Partial<YouthReportFormData>
-): void => {
-  const state = getYouthReportState(userId);
+): Promise<void> {
+  const state = await getYouthReportState(userId);
   if (state) {
     state.data = { ...state.data, ...updates };
-    setYouthReportState(userId, state);
+    await setYouthReportState(userId, state);
   } else {
     logWarn("Attempted to update data for non-existent youth report state", { userId });
   }
-};
+}
 
-/**
- * Set waiting for text input flag
- */
-export const setWaitingForTextInput = (
+export async function setWaitingForTextInput(
   userId: number,
   waiting: boolean
-): void => {
-  const state = getYouthReportState(userId);
+): Promise<void> {
+  const state = await getYouthReportState(userId);
   if (state) {
     state.waitingForTextInput = waiting;
-    setYouthReportState(userId, state);
+    await setYouthReportState(userId, state);
   }
-};
+}
 
-/**
- * Set message ID for state
- */
-export const setMessageId = (userId: number, messageId: number): void => {
-  const state = getYouthReportState(userId);
+export async function setMessageId(userId: number, messageId: number): Promise<void> {
+  const state = await getYouthReportState(userId);
   if (state) {
     state.messageId = messageId;
-    setYouthReportState(userId, state);
+    await setYouthReportState(userId, state);
   }
-};
+}
 
-/**
- * Clear state for a user
- */
-export const clearYouthReportState = (userId: number): void => {
-  const deleted = userStates.delete(userId);
-  if (deleted) {
-    logInfo("Youth report form state cleared", { userId });
-  }
-};
+export async function clearYouthReportState(userId: number): Promise<void> {
+  await stateStore.deleteState(userId, "youth_report");
+  logInfo("Youth report form state cleared", { userId });
+}
 
-/**
- * Check if user has active state
- */
-export const hasActiveYouthReportState = (userId: number): boolean => {
-  return userStates.has(userId);
-};
-
-
-
-
+export async function hasActiveYouthReportState(userId: number): Promise<boolean> {
+  const raw = await stateStore.getState(userId, "youth_report");
+  return raw != null;
+}
 

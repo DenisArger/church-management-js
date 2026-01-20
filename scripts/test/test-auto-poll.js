@@ -6,23 +6,24 @@
  */
 
 const { config } = require("dotenv");
+const requireDist = require("./require-dist");
 const {
   generatePollContent,
-} = require("./dist/src/utils/pollTextGenerator");
+} = requireDist("utils/pollTextGenerator");
 const {
   calculatePollSendTime,
   shouldSendPoll,
   shouldSendNotification,
   hasTheme,
   isEventMissing,
-} = require("./dist/src/utils/pollScheduler");
+} = requireDist("utils/pollScheduler");
 const {
   executeAutoPollForEvent,
   sendPollNotification,
-} = require("./dist/src/commands/autoPollCommand");
+} = requireDist("commands/autoPollCommand");
 const {
   getYouthEventsForDateRange,
-} = require("./dist/src/services/notionService");
+} = requireDist("services/notionService");
 
 // Load environment variables
 config();
@@ -314,6 +315,8 @@ module.exports = {
   testAutoPollCommand,
   testNotificationSending,
 };
+
+
 
 
 

@@ -1,4 +1,4 @@
-import { CommandResult } from "../types";
+import { CommandResult, PrayerFormState } from "../types";
 import { sendMessage, answerCallbackQuery } from "../services/telegramService";
 import { createWeeklyPrayerRecord, getWeeklyPrayerRecords } from "../services/notionService";
 import { logInfo, logWarn, logError } from "../utils/logger";
@@ -46,7 +46,7 @@ export const executeAddPrayerCommand = async (
   logInfo("Executing add prayer command", { userId, chatId, params });
 
   // Check if user has active prayer form state
-  if (hasActivePrayerState(userId)) {
+  if (await hasActivePrayerState(userId)) {
     // Handle text input for topic or new person name
     return await handlePrayerTextInput(userId, chatId, params.join(" "));
   }
@@ -59,7 +59,7 @@ export const executeAddPrayerCommand = async (
   // No parameters and no active state - start interactive form
   try {
     // Initialize state
-    const state = initPrayerState(userId, chatId);
+    const state = await initPrayerState(userId, chatId);
 
     // Send initial message with week selection
     const keyboard = buildWeekSelectionKeyboard();
@@ -70,7 +70,7 @@ export const executeAddPrayerCommand = async (
     });
 
     if (result.success && result.data?.messageId) {
-      setMessageId(userId, result.data.messageId as number);
+      await setMessageId(userId, result.data.messageId as number);
     }
 
     return result;
@@ -95,23 +95,23 @@ export const handlePrayerCallback = async (
   logInfo("Handling prayer callback", { userId, callbackData });
 
   try {
-    const state = getPrayerState(userId);
+    const state = await getPrayerState(userId);
     if (!state) {
       // State lost - try to recover by checking if this is a person selection
       // and we can infer the week type from the callback or reinitialize
       if (callbackData.startsWith("prayer:person:")) {
         // Try to reinitialize state and show person selection again
         // This handles the case where state was lost in serverless environment
-        const newState = initPrayerState(userId, chatId);
+        const newState = await initPrayerState(userId, chatId);
         // Try to get week type from previous message or default to current
         // For now, default to current week
-        updatePrayerData(userId, { weekType: "current" });
-        updatePrayerStep(userId, "person");
+        await updatePrayerData(userId, { weekType: "current" });
+        await updatePrayerStep(userId, "person");
         
         try {
           const records = await getWeeklyPrayerRecords();
           const oldPeople = getOldPrayersForSelection(records, 5);
-          updatePrayerData(userId, {
+          await updatePrayerData(userId, {
             peopleList: oldPeople.map(p => ({
               person: p.person,
               date: p.date,
@@ -128,7 +128,7 @@ export const handlePrayerCallback = async (
           });
           
           // Now handle person selection with recovered state
-          const recoveredState = getPrayerState(userId);
+          const recoveredState = await getPrayerState(userId);
           if (recoveredState) {
             return await handlePersonSelection(userId, chatId, callbackData, recoveredState);
           }
@@ -145,7 +145,7 @@ export const handlePrayerCallback = async (
 
     // Update message ID if provided
     if (messageId) {
-      setMessageId(userId, messageId);
+      await setMessageId(userId, messageId);
     }
 
     const parts = callbackData.split(":");
@@ -182,7 +182,7 @@ const handleWeekSelection = async (
   userId: number,
   chatId: number,
   weekType: string,
-  state: ReturnType<typeof getPrayerState>
+  state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -191,8 +191,8 @@ const handleWeekSelection = async (
   }
 
   // Save week type
-  updatePrayerData(userId, { weekType: weekType as "current" | "next" });
-  updatePrayerStep(userId, "person");
+  await updatePrayerData(userId, { weekType: weekType as "current" | "next" });
+  await updatePrayerStep(userId, "person");
 
     // Get old prayers for selection
     try {
@@ -200,7 +200,7 @@ const handleWeekSelection = async (
       const oldPeople = getOldPrayersForSelection(records, 5);
       
       // Store people list in state for decoding indices
-      updatePrayerData(userId, {
+      await updatePrayerData(userId, {
         peopleList: oldPeople.map(p => ({
           person: p.person,
           date: p.date,
@@ -240,7 +240,7 @@ const handlePersonSelection = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getPrayerState>
+  state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -249,11 +249,11 @@ const handlePersonSelection = async (
 
   if (personAction === "new") {
     // User wants to add new person - request text input
-    updatePrayerStep(userId, "topic");
-    setWaitingForTextInput(userId, true);
+    await updatePrayerStep(userId, "topic");
+    await setWaitingForTextInput(userId, true);
     // We'll handle this as "new person" mode - first ask for name, then topic
     // For now, we'll set a flag that we're waiting for person name
-    updatePrayerData(userId, { person: "__NEW__" });
+    await updatePrayerData(userId, { person: "__NEW__" });
     
     return await sendMessage(
       chatId,
@@ -278,9 +278,9 @@ const handlePersonSelection = async (
     const personName = peopleList[index].person;
     
     // Save person name
-    updatePrayerData(userId, { person: personName });
-    updatePrayerStep(userId, "topic");
-    setWaitingForTextInput(userId, true);
+    await updatePrayerData(userId, { person: personName });
+    await updatePrayerStep(userId, "topic");
+    await setWaitingForTextInput(userId, true);
 
     // Get previous week's topics for this person
     const previousTopics = await getPreviousWeekTopics(personName);
@@ -442,7 +442,7 @@ const handleTopicAction = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getPrayerState>
+  state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
   if (!state || !state.data.person) {
     return { success: false, error: "State not found or person not selected" };
@@ -465,8 +465,8 @@ const handleTopicAction = async (
       );
     }
     
-    updatePrayerData(userId, { topic: lastTopic });
-    setWaitingForTextInput(userId, false);
+    await updatePrayerData(userId, { topic: lastTopic });
+    await setWaitingForTextInput(userId, false);
     
     const reviewMessage = buildReviewMessage({
       ...state.data,
@@ -492,7 +492,7 @@ const handleTopicAction = async (
     }
     
     // Store previous topics in state for selection
-    updatePrayerData(userId, {
+    await updatePrayerData(userId, {
       previousTopics: previousTopics.map(t => ({
         topic: t.topic,
         date: t.date,
@@ -525,8 +525,8 @@ const handleTopicAction = async (
     }
     
     const selectedTopic = previousTopics[index].topic;
-    updatePrayerData(userId, { topic: selectedTopic });
-    setWaitingForTextInput(userId, false);
+    await updatePrayerData(userId, { topic: selectedTopic });
+    await setWaitingForTextInput(userId, false);
     
     const reviewMessage = buildReviewMessage({
       ...state.data,
@@ -542,7 +542,7 @@ const handleTopicAction = async (
 
   if (topicAction === "new") {
     // User wants to add new topic - request text input
-    setWaitingForTextInput(userId, true);
+    await setWaitingForTextInput(userId, true);
     
     return await sendMessage(
       chatId,
@@ -574,7 +574,7 @@ const handlePrayerTextInput = async (
   chatId: number,
   text: string
 ): Promise<CommandResult> => {
-  const state = getPrayerState(userId);
+  const state = await getPrayerState(userId);
   if (!state) {
     return {
       success: false,
@@ -600,7 +600,7 @@ const handlePrayerTextInput = async (
     }
 
     // Save person name and ask for topic
-    updatePrayerData(userId, { person: trimmedText });
+    await updatePrayerData(userId, { person: trimmedText });
     const message = getStepMessage("topic", { ...state.data, person: trimmedText });
     return await sendMessage(chatId, message, {
       parse_mode: "HTML",
@@ -619,8 +619,8 @@ const handlePrayerTextInput = async (
     }
 
     // Save topic and show confirmation
-    updatePrayerData(userId, { topic: trimmedText });
-    setWaitingForTextInput(userId, false);
+    await updatePrayerData(userId, { topic: trimmedText });
+    await setWaitingForTextInput(userId, false);
 
     const reviewMessage = buildReviewMessage({
       ...state.data,
@@ -643,7 +643,7 @@ const handlePrayerTextInput = async (
 const handleConfirm = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getPrayerState>
+  state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -711,7 +711,7 @@ const handleConfirm = async (
       });
 
       // Clear state
-      clearPrayerState(userId);
+      await clearPrayerState(userId);
 
       return await sendMessage(chatId, successMessage, { parse_mode: "HTML" });
     } else {
@@ -736,9 +736,9 @@ const handleConfirm = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getPrayerState>
+  state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
-  clearPrayerState(userId);
+  await clearPrayerState(userId);
   return await sendMessage(
     chatId,
     "❌ Добавление молитвы отменено.",

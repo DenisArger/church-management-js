@@ -1,4 +1,4 @@
-import { CommandResult } from "../types";
+import { CommandResult, SundayServiceState } from "../types";
 import { sendMessage } from "../services/telegramService";
 import {
   getUserState,
@@ -49,7 +49,7 @@ export const executeFillSundayServiceCommand = async (
 
   try {
     // Initialize state
-    const state = initUserState(userId, chatId);
+    const state = await initUserState(userId, chatId);
 
     // Send initial message with mode selection
     const keyboard = buildModeKeyboard();
@@ -59,7 +59,7 @@ export const executeFillSundayServiceCommand = async (
     });
 
     if (result.success && result.data?.messageId) {
-      setMessageId(userId, result.data.messageId as number);
+      await setMessageId(userId, result.data.messageId as number);
     }
 
     return result;
@@ -84,7 +84,7 @@ export const handleSundayServiceCallback = async (
   logInfo("Handling Sunday service callback", { userId, callbackData });
 
   try {
-    const state = getUserState(userId);
+    const state = await getUserState(userId);
     if (!state) {
       return {
         success: false,
@@ -94,7 +94,7 @@ export const handleSundayServiceCallback = async (
 
     // Update message ID if provided
     if (messageId) {
-      setMessageId(userId, messageId);
+      await setMessageId(userId, messageId);
     }
 
   const parts = callbackData.split(":");
@@ -143,14 +143,14 @@ const handleModeSelection = async (
   userId: number,
   chatId: number,
   mode: string,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
-  updateStateData(userId, { mode: mode as "create" | "edit" });
+  await updateStateData(userId, { mode: mode as "create" | "edit" });
 
   if (mode === "create") {
-    updateStep(userId, "date");
+    await updateStep(userId, "date");
     const keyboard = buildDateKeyboard();
     return await sendMessage(chatId, getStepMessage("date", state.data), {
       reply_markup: keyboard,
@@ -159,7 +159,7 @@ const handleModeSelection = async (
   } else {
     // For edit mode, we need to show available dates
     // For now, we'll use the same date selection
-    updateStep(userId, "date");
+    await updateStep(userId, "date");
     const keyboard = buildDateKeyboard();
     return await sendMessage(chatId, "Выберите дату служения для редактирования:", {
       reply_markup: keyboard,
@@ -175,17 +175,17 @@ const handleDateSelection = async (
   userId: number,
   chatId: number,
   dateStr: string,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   const date = new Date(dateStr);
-  updateStateData(userId, { date });
+  await updateStateData(userId, { date });
 
   // If edit mode, try to load existing service
   if (state.data.mode === "edit") {
     // We'll need to ask for stream first to load the right service
-    updateStep(userId, "stream");
+    await updateStep(userId, "stream");
     const keyboard = buildStreamKeyboard();
     return await sendMessage(chatId, getStepMessage("stream", state.data), {
       reply_markup: keyboard,
@@ -193,7 +193,7 @@ const handleDateSelection = async (
     });
   } else {
     // Create mode - ask for stream
-    updateStep(userId, "stream");
+    await updateStep(userId, "stream");
     const keyboard = buildStreamKeyboard();
     return await sendMessage(chatId, getStepMessage("stream", state.data), {
       reply_markup: keyboard,
@@ -209,11 +209,11 @@ const handleStreamSelection = async (
   userId: number,
   chatId: number,
   stream: string,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
-  updateStateData(userId, { stream: stream as "1" | "2" | "both" });
+  await updateStateData(userId, { stream: stream as "1" | "2" | "both" });
 
   // If edit mode, try to load existing service
   if (state.data.mode === "edit" && state.data.date) {
@@ -225,7 +225,7 @@ const handleStreamSelection = async (
 
     if (existingService) {
       // Load existing data
-      updateStateData(userId, {
+      await updateStateData(userId, {
         serviceId: existingService.id,
         title: existingService.title,
         preachers: existingService.preachers.map((p) => p.name),
@@ -242,22 +242,22 @@ const handleStreamSelection = async (
 
   // If both streams, set current stream to 1
   if (stream === "both") {
-    updateStateData(userId, { currentStream: "1" });
+    await updateStateData(userId, { currentStream: "1" });
   }
 
   // Generate default title if not set
   if (!state.data.title && state.data.date) {
     const streamName = stream === "1" ? "I поток" : stream === "2" ? "II поток" : "I поток";
     const dateStr = new Date(state.data.date).toLocaleDateString("ru-RU");
-    updateStateData(userId, {
+    await updateStateData(userId, {
       title: `Воскресное служение ${streamName} - ${dateStr}`,
     });
   }
 
   // Show preview with edit buttons immediately
-  updateStep(userId, "review");
-  setWaitingForTextInput(userId, false);
-  const updatedState = getUserState(userId);
+  await updateStep(userId, "review");
+  await setWaitingForTextInput(userId, false);
+  const updatedState = await getUserState(userId);
   if (!updatedState) return { success: false, error: "State not found" };
   const reviewMessage = getStepMessage("review", updatedState.data);
   const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -274,7 +274,7 @@ const handleFieldSelection = async (
   userId: number,
   chatId: number,
   callbackData: string,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -294,7 +294,7 @@ const handleFieldSelection = async (
   switch (fieldName) {
     case "preacher":
       if (value === "custom") {
-        setWaitingForTextInput(userId, true);
+        await setWaitingForTextInput(userId, true);
         return await sendMessage(
           chatId,
           "Введите имя проповедника:",
@@ -309,7 +309,7 @@ const handleFieldSelection = async (
         } else {
           currentPreachers.push(value);
         }
-        updateStateData(userId, { preachers: [...currentPreachers] });
+        await updateStateData(userId, { preachers: [...currentPreachers] });
 
         const currentPage = state.data.preachersPage || 1;
         const keyboard = buildPreachersKeyboard(currentPreachers, currentPage);
@@ -324,9 +324,9 @@ const handleFieldSelection = async (
       if (value === "done") {
         // If editing, return to review
         if (state.step === "preachers" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -336,11 +336,11 @@ const handleFieldSelection = async (
           });
         }
         // Otherwise continue normal flow
-        updateStep(userId, "worshipService");
-        setWaitingForTextInput(userId, false);
+        await updateStep(userId, "worshipService");
+        await setWaitingForTextInput(userId, false);
         const worshipServices = await getWorshipServices();
         // Store worship services list in state for callback data lookup
-        updateStateData(userId, { worshipServicesList: worshipServices });
+        await updateStateData(userId, { worshipServicesList: worshipServices });
         const keyboard = buildWorshipServiceKeyboard(worshipServices);
         return await sendMessage(
           chatId,
@@ -350,7 +350,7 @@ const handleFieldSelection = async (
       } else if (value.startsWith("page:")) {
         // Handle pagination
         const page = parseInt(value.split(":")[1], 10);
-        updateStateData(userId, { preachersPage: page });
+        await updateStateData(userId, { preachersPage: page });
         const currentPreachers = state.data.preachers || [];
         const keyboard = buildPreachersKeyboard(currentPreachers, page);
         return await sendMessage(
@@ -363,7 +363,7 @@ const handleFieldSelection = async (
 
     case "worshipService":
       if (value === "custom") {
-        setWaitingForTextInput(userId, true);
+        await setWaitingForTextInput(userId, true);
         return await sendMessage(
           chatId,
           "Введите название музыкального служения:",
@@ -388,17 +388,17 @@ const handleFieldSelection = async (
         }
         
         // Get fresh state to ensure we have the latest worshipServicesList
-        const currentState = getUserState(userId);
+        const currentState = await getUserState(userId);
         if (!currentState) return { success: false, error: "State not found" };
         const worshipServices = currentState.data.worshipServicesList || [];
         
         if (worshipServices.length === 0) {
           // If list is empty, reload it
           const reloadedServices = await getWorshipServices();
-          updateStateData(userId, { worshipServicesList: reloadedServices });
+          await updateStateData(userId, { worshipServicesList: reloadedServices });
           if (index >= 0 && index < reloadedServices.length) {
             const selectedService = reloadedServices[index];
-            updateStateData(userId, { worshipService: selectedService });
+            await updateStateData(userId, { worshipService: selectedService });
           } else {
             logWarn("Invalid worship service index after reload", {
               index,
@@ -409,7 +409,7 @@ const handleFieldSelection = async (
         } else if (index >= 0 && index < worshipServices.length) {
           const selectedService = worshipServices[index];
           logInfo("Selected worship service", { index, service: selectedService });
-          updateStateData(userId, { worshipService: selectedService });
+          await updateStateData(userId, { worshipService: selectedService });
         } else {
           logWarn("Invalid worship service index", {
             index,
@@ -420,13 +420,13 @@ const handleFieldSelection = async (
         }
         
         // Get updated state after setting worshipService
-        const updatedState = getUserState(userId);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         
         // If editing, return to review
         if (currentState.step === "worshipService" && currentState.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
           return await sendMessage(chatId, reviewMessage, {
@@ -435,7 +435,7 @@ const handleFieldSelection = async (
           });
         }
         // Otherwise continue normal flow
-        updateStep(userId, "songBeforeStart");
+        await updateStep(userId, "songBeforeStart");
         const keyboard = buildYesNoKeyboard("songBeforeStart", updatedState.data.songBeforeStart);
         return await sendMessage(
           chatId,
@@ -444,12 +444,12 @@ const handleFieldSelection = async (
         );
       } else {
         // Fallback for direct value (shouldn't happen with new implementation)
-        updateStateData(userId, { worshipService: value });
+        await updateStateData(userId, { worshipService: value });
         // If editing, return to review
         if (state.step === "worshipService" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -459,7 +459,7 @@ const handleFieldSelection = async (
           });
         }
         // Otherwise continue normal flow
-        updateStep(userId, "songBeforeStart");
+        await updateStep(userId, "songBeforeStart");
         const keyboard = buildYesNoKeyboard("songBeforeStart", state.data.songBeforeStart);
         return await sendMessage(
           chatId,
@@ -469,12 +469,12 @@ const handleFieldSelection = async (
       }
 
     case "songBeforeStart":
-      updateStateData(userId, { songBeforeStart: value === "true" });
+      await updateStateData(userId, { songBeforeStart: value === "true" });
       // If editing, return to review
       if (state.step === "songBeforeStart" && state.data.mode === "edit") {
-        updateStep(userId, "review");
-        setWaitingForTextInput(userId, false);
-        const updatedState = getUserState(userId);
+        await updateStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildReviewKeyboard();
@@ -484,7 +484,7 @@ const handleFieldSelection = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "numWorshipSongs");
+      await updateStep(userId, "numWorshipSongs");
       const numKeyboard = buildNumberKeyboard("numWorshipSongs", state.data.numWorshipSongs);
       return await sendMessage(
         chatId,
@@ -494,19 +494,19 @@ const handleFieldSelection = async (
 
     case "numWorshipSongs":
       if (value === "custom") {
-        setWaitingForTextInput(userId, true);
+        await setWaitingForTextInput(userId, true);
         return await sendMessage(
           chatId,
           "Введите количество песен (число):",
           { parse_mode: "HTML" }
         );
       } else {
-        updateStateData(userId, { numWorshipSongs: parseInt(value, 10) });
+        await updateStateData(userId, { numWorshipSongs: parseInt(value, 10) });
         // If editing, return to review
         if (state.step === "numWorshipSongs" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -516,7 +516,7 @@ const handleFieldSelection = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "soloSong");
+      await updateStep(userId, "soloSong");
         const soloKeyboard = buildYesNoKeyboard("soloSong", state.data.soloSong);
         return await sendMessage(
           chatId,
@@ -526,12 +526,12 @@ const handleFieldSelection = async (
       }
 
     case "soloSong":
-      updateStateData(userId, { soloSong: value === "true" });
+      await updateStateData(userId, { soloSong: value === "true" });
       // If editing, return to review
       if (state.step === "soloSong" && state.data.mode === "edit") {
-        updateStep(userId, "review");
-        setWaitingForTextInput(userId, false);
-        const updatedState = getUserState(userId);
+        await updateStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -541,7 +541,7 @@ const handleFieldSelection = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "repentanceSong");
+      await updateStep(userId, "repentanceSong");
       const repentanceKeyboard = buildYesNoKeyboard("repentanceSong", state.data.repentanceSong);
       return await sendMessage(
         chatId,
@@ -550,12 +550,12 @@ const handleFieldSelection = async (
       );
 
     case "repentanceSong":
-      updateStateData(userId, { repentanceSong: value === "true" });
+      await updateStateData(userId, { repentanceSong: value === "true" });
       // If editing, return to review
       if (state.step === "repentanceSong" && state.data.mode === "edit") {
-        updateStep(userId, "review");
-        setWaitingForTextInput(userId, false);
-        const updatedState = getUserState(userId);
+        await updateStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildReviewKeyboard();
@@ -565,8 +565,8 @@ const handleFieldSelection = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "scriptureReading");
-      setWaitingForTextInput(userId, true);
+      await updateStep(userId, "scriptureReading");
+      await setWaitingForTextInput(userId, true);
       return await sendMessage(
         chatId,
         getStepMessage("scriptureReading", state.data),
@@ -575,7 +575,7 @@ const handleFieldSelection = async (
 
     case "scriptureReader":
       if (value === "custom") {
-        setWaitingForTextInput(userId, true);
+        await setWaitingForTextInput(userId, true);
         return await sendMessage(
           chatId,
           "Введите имя чтеца Писания:",
@@ -599,17 +599,17 @@ const handleFieldSelection = async (
         }
         
         // Get fresh state to ensure we have the latest scriptureReadersList
-        const currentState = getUserState(userId);
+        const currentState = await getUserState(userId);
         if (!currentState) return { success: false, error: "State not found" };
         const scriptureReaders = currentState.data.scriptureReadersList || [];
         
         if (scriptureReaders.length === 0) {
           // If list is empty, reload it
           const reloadedReaders = await getScriptureReaders();
-          updateStateData(userId, { scriptureReadersList: reloadedReaders });
+          await updateStateData(userId, { scriptureReadersList: reloadedReaders });
           if (index >= 0 && index < reloadedReaders.length) {
             const selectedReader = reloadedReaders[index];
-            updateStateData(userId, { scriptureReader: selectedReader });
+            await updateStateData(userId, { scriptureReader: selectedReader });
           } else {
             logWarn("Invalid scripture reader index after reload", {
               index,
@@ -620,7 +620,7 @@ const handleFieldSelection = async (
         } else if (index >= 0 && index < scriptureReaders.length) {
           const selectedReader = scriptureReaders[index];
           logInfo("Selected scripture reader", { index, reader: selectedReader });
-          updateStateData(userId, { scriptureReader: selectedReader });
+          await updateStateData(userId, { scriptureReader: selectedReader });
         } else {
           logWarn("Invalid scripture reader index", {
             index,
@@ -631,13 +631,13 @@ const handleFieldSelection = async (
         }
         
         // Get updated state after setting scriptureReader
-        const updatedState = getUserState(userId);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         
         // If editing, return to review
         if (currentState.step === "scriptureReader" && currentState.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildReviewKeyboard();
           return await sendMessage(chatId, reviewMessage, {
@@ -649,12 +649,12 @@ const handleFieldSelection = async (
         return await proceedToReviewOrNextStream(userId, chatId, updatedState);
       } else {
         // Fallback for direct value (shouldn't happen with new implementation)
-        updateStateData(userId, { scriptureReader: value });
+        await updateStateData(userId, { scriptureReader: value });
         // If editing, return to review
         if (state.step === "scriptureReader" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildReviewKeyboard();
@@ -682,18 +682,18 @@ export const handleSundayServiceTextInput = async (
   logInfo("Handling Sunday service text input", { userId, text: text.substring(0, 50) });
 
   try {
-    const state = getUserState(userId);
+    const state = await getUserState(userId);
     if (!state || !state.waitingForTextInput) {
       return { success: true, message: "Text input ignored" };
     }
 
     switch (state.step) {
       case "title":
-        updateStateData(userId, { title: text.trim() });
+        await updateStateData(userId, { title: text.trim() });
         // Always return to review after editing title
-        updateStep(userId, "review");
-        setWaitingForTextInput(userId, false);
-        const updatedState = getUserState(userId);
+        await updateStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -706,7 +706,7 @@ export const handleSundayServiceTextInput = async (
         // Custom preacher name
         const currentPreachers = state.data.preachers || [];
         currentPreachers.push(text.trim());
-        updateStateData(userId, { preachers: currentPreachers });
+        await updateStateData(userId, { preachers: currentPreachers });
         const preachersPage = state.data.preachersPage || 1;
         const updatedPreachersKeyboard = buildPreachersKeyboard(currentPreachers, preachersPage);
         return await sendMessage(
@@ -716,12 +716,12 @@ export const handleSundayServiceTextInput = async (
         );
 
       case "worshipService":
-        updateStateData(userId, { worshipService: text.trim() });
+        await updateStateData(userId, { worshipService: text.trim() });
         // If editing, return to review
         if (state.step === "worshipService" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -731,8 +731,8 @@ export const handleSundayServiceTextInput = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "songBeforeStart");
-        setWaitingForTextInput(userId, false);
+      await updateStep(userId, "songBeforeStart");
+        await setWaitingForTextInput(userId, false);
         const songKeyboard = buildYesNoKeyboard("songBeforeStart", state.data.songBeforeStart);
         return await sendMessage(
           chatId,
@@ -749,12 +749,12 @@ export const handleSundayServiceTextInput = async (
             { parse_mode: "HTML" }
           );
         }
-        updateStateData(userId, { numWorshipSongs: num });
+        await updateStateData(userId, { numWorshipSongs: num });
         // If editing, return to review
         if (state.step === "numWorshipSongs" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -764,8 +764,8 @@ export const handleSundayServiceTextInput = async (
         });
       }
       // Otherwise continue normal flow
-      updateStep(userId, "soloSong");
-        setWaitingForTextInput(userId, false);
+      await updateStep(userId, "soloSong");
+        await setWaitingForTextInput(userId, false);
         const soloKeyboard = buildYesNoKeyboard("soloSong", state.data.soloSong);
         return await sendMessage(
           chatId,
@@ -774,12 +774,12 @@ export const handleSundayServiceTextInput = async (
         );
 
       case "scriptureReading":
-        updateStateData(userId, { scriptureReading: text.trim() });
+        await updateStateData(userId, { scriptureReading: text.trim() });
         // If we're in review mode (editing), return to review
         if (state.step === "scriptureReading" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          setWaitingForTextInput(userId, false);
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          await setWaitingForTextInput(userId, false);
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildReviewKeyboard();
@@ -789,11 +789,11 @@ export const handleSundayServiceTextInput = async (
           });
         }
         // Otherwise continue normal flow
-        updateStep(userId, "scriptureReader");
-        setWaitingForTextInput(userId, false);
+        await updateStep(userId, "scriptureReader");
+        await setWaitingForTextInput(userId, false);
         const scriptureReaders = await getScriptureReaders();
         // Store scripture readers list in state for callback data lookup
-        updateStateData(userId, { scriptureReadersList: scriptureReaders });
+        await updateStateData(userId, { scriptureReadersList: scriptureReaders });
         const readerKeyboard = buildScriptureReaderKeyboard(scriptureReaders);
         return await sendMessage(
           chatId,
@@ -802,12 +802,12 @@ export const handleSundayServiceTextInput = async (
         );
 
       case "scriptureReader":
-        updateStateData(userId, { scriptureReader: text.trim() });
-        setWaitingForTextInput(userId, false);
+        await updateStateData(userId, { scriptureReader: text.trim() });
+        await setWaitingForTextInput(userId, false);
         // If we're in review mode (editing), return to review
         if (state.step === "scriptureReader" && state.data.mode === "edit") {
-          updateStep(userId, "review");
-          const updatedState = getUserState(userId);
+          await updateStep(userId, "review");
+          const updatedState = await getUserState(userId);
           if (!updatedState) return { success: false, error: "State not found" };
           const reviewMessage = getStepMessage("review", updatedState.data);
           const reviewKeyboard = buildReviewKeyboard();
@@ -835,7 +835,7 @@ export const handleSundayServiceTextInput = async (
 const proceedToReviewOrNextStream = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -843,23 +843,23 @@ const proceedToReviewOrNextStream = async (
     const currentStream = getCurrentStream(state);
     if (currentStream === "1") {
       // Save stream 1 data and move to stream 2
-      saveCurrentStreamData(userId);
-      updateStateData(userId, { currentStream: "2" });
-      loadCurrentStreamData(userId);
+      await saveCurrentStreamData(userId);
+      await updateStateData(userId, { currentStream: "2" });
+      await loadCurrentStreamData(userId);
       
       // Generate default title for stream 2 if not set
-      const updatedState = getUserState(userId);
+      const updatedState = await getUserState(userId);
       if (updatedState && !updatedState.data.title && updatedState.data.date) {
         const dateStr = new Date(updatedState.data.date).toLocaleDateString("ru-RU");
-        updateStateData(userId, {
+        await updateStateData(userId, {
           title: `Воскресное служение II поток - ${dateStr}`,
         });
       }
       
       // Show preview with edit buttons for stream 2
-      updateStep(userId, "review");
-      setWaitingForTextInput(userId, false);
-      const finalState = getUserState(userId);
+      await updateStep(userId, "review");
+      await setWaitingForTextInput(userId, false);
+      const finalState = await getUserState(userId);
       if (!finalState) return { success: false, error: "State not found" };
       const reviewMessage = getStepMessage("review", finalState.data);
       const reviewKeyboard = buildEditFieldKeyboard(finalState.data);
@@ -869,10 +869,10 @@ const proceedToReviewOrNextStream = async (
       });
     } else {
       // Save stream 2 data and move to review
-      saveCurrentStreamData(userId);
-      updateStep(userId, "review");
-      setWaitingForTextInput(userId, false);
-      const updatedState = getUserState(userId);
+      await saveCurrentStreamData(userId);
+      await updateStep(userId, "review");
+      await setWaitingForTextInput(userId, false);
+      const updatedState = await getUserState(userId);
       if (!updatedState) return { success: false, error: "State not found" };
       const reviewMessage = getStepMessage("review", updatedState.data);
       const reviewKeyboard = buildReviewKeyboard();
@@ -883,8 +883,8 @@ const proceedToReviewOrNextStream = async (
     }
   } else {
     // Single stream - move to review
-    updateStep(userId, "review");
-    setWaitingForTextInput(userId, false);
+    await updateStep(userId, "review");
+    await setWaitingForTextInput(userId, false);
     const reviewMessage = getStepMessage("review", state.data);
     const reviewKeyboard = buildReviewKeyboard();
     return await sendMessage(chatId, reviewMessage, {
@@ -900,7 +900,7 @@ const proceedToReviewOrNextStream = async (
 const handleConfirm = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -925,7 +925,7 @@ const handleConfirm = async (
       // Create both services
       const result1 = await createSundayService(state.data, "1");
       if (!result1.success) {
-        clearUserState(userId);
+        await clearUserState(userId);
         return await sendMessage(
           chatId,
           `❌ Ошибка при сохранении I потока:\n${result1.error || "Неизвестная ошибка"}\n\nПопробуйте заполнить заново.`,
@@ -935,7 +935,7 @@ const handleConfirm = async (
 
       const result2 = await createSundayService(state.data, "2");
       if (!result2.success) {
-        clearUserState(userId);
+        await clearUserState(userId);
         return await sendMessage(
           chatId,
           `❌ Ошибка при сохранении II потока:\n${result2.error || "Неизвестная ошибка"}\n\nI поток сохранен, но II поток не удалось сохранить. Попробуйте заполнить II поток заново.`,
@@ -978,7 +978,7 @@ const handleConfirm = async (
             { parse_mode: "HTML", reply_markup: continueKeyboard }
           );
         } else {
-          clearUserState(userId);
+          await clearUserState(userId);
           return await sendMessage(
             chatId,
             `❌ Ошибка при обновлении служения:\n${result.error || "Неизвестная ошибка"}\n\nПопробуйте заполнить заново.`,
@@ -991,7 +991,7 @@ const handleConfirm = async (
           // Save serviceId and switch to edit mode for future updates
           const pageId = result.data?.pageId as string | undefined;
           if (pageId) {
-            updateStateData(userId, {
+            await updateStateData(userId, {
               serviceId: pageId,
               mode: "edit",
             });
@@ -1004,7 +1004,7 @@ const handleConfirm = async (
             { parse_mode: "HTML", reply_markup: continueKeyboard }
           );
         } else {
-          clearUserState(userId);
+          await clearUserState(userId);
           return await sendMessage(
             chatId,
             `❌ Ошибка при сохранении служения:\n${result.error || "Неизвестная ошибка"}\n\nПопробуйте заполнить заново.`,
@@ -1015,7 +1015,7 @@ const handleConfirm = async (
     }
   } catch (error) {
     logError("Error confirming Sunday service", error);
-    clearUserState(userId);
+    await clearUserState(userId);
     const errorMessage =
       error instanceof Error ? error.message : "Неизвестная ошибка";
     return await sendMessage(
@@ -1032,7 +1032,7 @@ const handleConfirm = async (
 const handleEdit = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -1051,21 +1051,21 @@ const handleEditField = async (
   userId: number,
   chatId: number,
   fieldName: string,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   switch (fieldName) {
     case "title":
-      updateStep(userId, "title");
-      setWaitingForTextInput(userId, true);
+      await updateStep(userId, "title");
+      await setWaitingForTextInput(userId, true);
       return await sendMessage(chatId, getStepMessage("title", state.data), {
         parse_mode: "HTML",
       });
 
       case "preachers":
-        updateStep(userId, "preachers");
-        setWaitingForTextInput(userId, false);
+        await updateStep(userId, "preachers");
+        await setWaitingForTextInput(userId, false);
         const preachersPage = state.data.preachersPage || 1;
         const preachersKeyboard = buildPreachersKeyboard(state.data.preachers, preachersPage);
         return await sendMessage(
@@ -1075,11 +1075,11 @@ const handleEditField = async (
         );
 
     case "worshipService":
-      updateStep(userId, "worshipService");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "worshipService");
+      await setWaitingForTextInput(userId, false);
       const worshipServices = await getWorshipServices();
       // Store worship services list in state for callback data lookup
-      updateStateData(userId, { worshipServicesList: worshipServices });
+      await updateStateData(userId, { worshipServicesList: worshipServices });
       const worshipKeyboard = buildWorshipServiceKeyboard(worshipServices);
       return await sendMessage(
         chatId,
@@ -1088,8 +1088,8 @@ const handleEditField = async (
       );
 
     case "songBeforeStart":
-      updateStep(userId, "songBeforeStart");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "songBeforeStart");
+      await setWaitingForTextInput(userId, false);
       const songKeyboard = buildYesNoKeyboard("songBeforeStart", state.data.songBeforeStart);
       return await sendMessage(
         chatId,
@@ -1098,8 +1098,8 @@ const handleEditField = async (
       );
 
     case "numWorshipSongs":
-      updateStep(userId, "numWorshipSongs");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "numWorshipSongs");
+      await setWaitingForTextInput(userId, false);
       const numKeyboard = buildNumberKeyboard("numWorshipSongs", state.data.numWorshipSongs);
       return await sendMessage(
         chatId,
@@ -1108,8 +1108,8 @@ const handleEditField = async (
       );
 
     case "soloSong":
-      updateStep(userId, "soloSong");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "soloSong");
+      await setWaitingForTextInput(userId, false);
       const soloKeyboard = buildYesNoKeyboard("soloSong", state.data.soloSong);
       return await sendMessage(
         chatId,
@@ -1118,8 +1118,8 @@ const handleEditField = async (
       );
 
     case "repentanceSong":
-      updateStep(userId, "repentanceSong");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "repentanceSong");
+      await setWaitingForTextInput(userId, false);
       const repentanceKeyboard = buildYesNoKeyboard("repentanceSong", state.data.repentanceSong);
       return await sendMessage(
         chatId,
@@ -1128,8 +1128,8 @@ const handleEditField = async (
       );
 
     case "scriptureReading":
-      updateStep(userId, "scriptureReading");
-      setWaitingForTextInput(userId, true);
+      await updateStep(userId, "scriptureReading");
+      await setWaitingForTextInput(userId, true);
       return await sendMessage(
         chatId,
         getStepMessage("scriptureReading", state.data),
@@ -1137,11 +1137,11 @@ const handleEditField = async (
       );
 
     case "scriptureReader":
-      updateStep(userId, "scriptureReader");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "scriptureReader");
+      await setWaitingForTextInput(userId, false);
       const scriptureReaders = await getScriptureReaders();
       // Store scripture readers list in state for callback data lookup
-      updateStateData(userId, { scriptureReadersList: scriptureReaders });
+      await updateStateData(userId, { scriptureReadersList: scriptureReaders });
       const readerKeyboard = buildScriptureReaderKeyboard(scriptureReaders);
       return await sendMessage(
         chatId,
@@ -1160,7 +1160,7 @@ const handleEditField = async (
 const handleContinueEdit = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   if (!state) {
     return {
@@ -1170,8 +1170,8 @@ const handleContinueEdit = async (
   }
 
   // Return to review step with edit keyboard
-  updateStep(userId, "review");
-  setWaitingForTextInput(userId, false);
+  await updateStep(userId, "review");
+  await setWaitingForTextInput(userId, false);
   const reviewMessage = getStepMessage("review", state.data);
   const reviewKeyboard = buildEditFieldKeyboard(state.data);
   return await sendMessage(chatId, reviewMessage, {
@@ -1186,9 +1186,9 @@ const handleContinueEdit = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
-  clearUserState(userId);
+  await clearUserState(userId);
   return await sendMessage(
     chatId,
     "❌ Заполнение воскресного служения отменено.\n\nВсе несохраненные данные удалены. Вы можете начать заново с команды /fill_sunday_service",

@@ -12,7 +12,6 @@
 - [`/create_poll`](create-poll.md) - Создание опроса
 - [`/request_pray`](request-pray.md) - Рассылка молитвенных нужд
 - [`/add_prayer`](add-prayer.md) - Добавление молитвенной записи
-- [`/daily_scripture`](daily-scripture.md) - Ежедневное чтение Библии
 - [`/request_state_sunday`](request-state-sunday.md) - Информация о воскресном служении
 - [`/weekly_schedule`](weekly-schedule.md) - Недельное расписание
 - [`/prayer_week`](prayer-week.md) - Молитвы на следующую неделю

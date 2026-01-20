@@ -50,24 +50,15 @@ check_requirements() {
         missing_requirements+=("Yarn")
     fi
     
-    # Check Netlify CLI (try netlify, npx netlify, or yarn netlify)
-    NETLIFY_CMD=""
-    if command_exists netlify; then
-        NETLIFY_CMD="netlify"
-    elif command_exists npx; then
-        NETLIFY_CMD="npx netlify"
-    elif command_exists yarn; then
-        NETLIFY_CMD="yarn netlify"
-    fi
-    
-    if [ -z "$NETLIFY_CMD" ]; then
-        missing_requirements+=("Netlify CLI (install via: yarn add -D netlify-cli)")
+    # Check Netlify CLI
+    if ! command_exists netlify; then
+        missing_requirements+=("Netlify CLI")
     fi
     
     # Check ngrok
     NGROK_PATH=""
     # Try different possible paths for ngrok
-    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok" "$HOME/bin/ngrok"; do
+    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok"; do
         if [ -f "$path" ] || command_exists ngrok; then
             NGROK_PATH="$path"
             break
@@ -163,42 +154,22 @@ build_project() {
 start_netlify_dev() {
     print_status "Starting Netlify development server..."
     
-    # Determine netlify command
-    if [ -z "$NETLIFY_CMD" ]; then
-        if command_exists netlify; then
-            NETLIFY_CMD="netlify"
-        elif command_exists npx; then
-            NETLIFY_CMD="npx netlify"
-        elif command_exists yarn; then
-            NETLIFY_CMD="yarn netlify"
-        else
-            print_error "Netlify CLI not found"
-            exit 1
-        fi
-    fi
-    
-    print_status "Using Netlify command: $NETLIFY_CMD"
-    
-    # Start netlify dev in background and disown it
-    nohup $NETLIFY_CMD dev --port 8888 > .netlify-dev.log 2>&1 &
+    # Start netlify dev in background
+    netlify dev --port 8888 &
     NETLIFY_PID=$!
     
     # Wait for server to start
     print_status "Waiting for Netlify dev server to start..."
-    sleep 8
+    sleep 5
     
     # Check if server is running
     if ! kill -0 $NETLIFY_PID 2>/dev/null; then
         print_error "Failed to start Netlify dev server"
-        print_status "Check .netlify-dev.log for details"
-        cat .netlify-dev.log 2>/dev/null | tail -20
         exit 1
     fi
     
     print_success "Netlify dev server started (PID: $NETLIFY_PID)"
     echo $NETLIFY_PID > .netlify-dev.pid
-    # Disown the process so it continues after script exits
-    disown $NETLIFY_PID 2>/dev/null || true
 }
 
 # Function to start ngrok tunnel
@@ -207,7 +178,7 @@ start_ngrok() {
     
     # Determine ngrok command
     NGROK_CMD=""
-    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok" "$HOME/bin/ngrok"; do
+    for path in "/mnt/c/ProgramData/chocolatey/bin/ngrok.exe" "/mnt/c/Program Files/chocolatey/bin/ngrok.exe" "/usr/local/bin/ngrok" "/usr/bin/ngrok"; do
         if [ -f "$path" ]; then
             NGROK_CMD="$path"
             break
@@ -226,19 +197,17 @@ start_ngrok() {
     
     print_status "Using ngrok: $NGROK_CMD"
     
-    # Start ngrok tunnel in background and disown it
-    nohup "$NGROK_CMD" http 8888 --log=stdout > .ngrok.log 2>&1 &
+    # Start ngrok tunnel in background
+    "$NGROK_CMD" http 8888 --log=stdout > .ngrok.log 2>&1 &
     NGROK_PID=$!
     
     # Wait for ngrok to start
     print_status "Waiting for ngrok tunnel to establish..."
-    sleep 5
+    sleep 3
     
     # Check if ngrok is running
     if ! kill -0 $NGROK_PID 2>/dev/null; then
         print_error "Failed to start ngrok tunnel"
-        print_status "Check .ngrok.log for details"
-        cat .ngrok.log 2>/dev/null | tail -20
         exit 1
     fi
     
@@ -322,13 +291,7 @@ cleanup() {
     if [ -f ".netlify-dev.pid" ]; then
         NETLIFY_PID=$(cat .netlify-dev.pid)
         if kill -0 $NETLIFY_PID 2>/dev/null; then
-            # Try graceful shutdown first
-            kill $NETLIFY_PID 2>/dev/null
-            sleep 2
-            # Force kill if still running
-            if kill -0 $NETLIFY_PID 2>/dev/null; then
-                kill -9 $NETLIFY_PID 2>/dev/null
-            fi
+            kill $NETLIFY_PID
             print_status "Stopped Netlify dev server (PID: $NETLIFY_PID)"
         fi
         rm -f .netlify-dev.pid
@@ -338,24 +301,14 @@ cleanup() {
     if [ -f ".ngrok.pid" ]; then
         NGROK_PID=$(cat .ngrok.pid)
         if kill -0 $NGROK_PID 2>/dev/null; then
-            # Try graceful shutdown first
-            kill $NGROK_PID 2>/dev/null
-            sleep 1
-            # Force kill if still running
-            if kill -0 $NGROK_PID 2>/dev/null; then
-                kill -9 $NGROK_PID 2>/dev/null
-            fi
+            kill $NGROK_PID
             print_status "Stopped ngrok tunnel (PID: $NGROK_PID)"
         fi
         rm -f .ngrok.pid
     fi
     
-    # Also try to kill by process name (in case PID file is missing)
-    pkill -f "netlify dev" 2>/dev/null && print_status "Stopped remaining Netlify dev processes"
-    pkill -f "ngrok http" 2>/dev/null && print_status "Stopped remaining ngrok processes"
-    
-    # Clean up temporary files (keep logs for debugging)
-    rm -f .ngrok-url .webhook-url
+    # Clean up temporary files
+    rm -f .ngrok-url .webhook-url .ngrok.log
     
     print_success "Cleanup completed"
 }
@@ -497,20 +450,9 @@ main() {
             echo "  ngrok URL: $(cat .ngrok-url)"
             echo "  Webhook URL: $(cat .webhook-url)"
             echo
-            echo "Processes are running in background:"
-            echo "  Netlify Dev: PID $(cat .netlify-dev.pid)"
-            echo "  ngrok: PID $(cat .ngrok.pid)"
-            echo
             echo "To stop the session, run: $0 stop"
             echo "To check status, run: $0 status"
             echo
-            echo "You can now send commands to your bot in Telegram!"
-            echo "All logs will be written to:"
-            echo "  - .netlify-dev.log (Netlify Dev)"
-            echo "  - .ngrok.log (ngrok)"
-            echo
-            # Remove trap so processes continue after script exits
-            trap - EXIT INT TERM
             ;;
         "stop")
             echo "=========================================="

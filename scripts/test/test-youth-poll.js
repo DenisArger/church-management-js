@@ -6,14 +6,15 @@
  */
 
 const { config } = require("dotenv");
+const requireDist = require("./require-dist");
 const {
   executeYouthPollCommand,
   executeYouthPollScheduled,
-} = require("./dist/src/commands/youthPollCommand");
+} = requireDist("commands/youthPollCommand");
 const {
   getYouthEventForTomorrow,
-} = require("./dist/src/services/notionService");
-const { logInfo, logError } = require("./dist/src/utils/logger");
+} = requireDist("services/notionService");
+const { logInfo, logError } = requireDist("utils/logger");
 
 // Load environment variables
 config();

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon --exec ts-node debug-server.ts",
     "start": "node dist/index.js",
     "deploy": "yarn build && netlify deploy --prod",
     "deploy:full": "./scripts/deploy.sh",
@@ -15,7 +15,6 @@
     "webhook:set-ngrok": "./scripts/webhook-manager.sh set-ngrok-file",
     "webhook:info": "./scripts/webhook-manager.sh info",
     "webhook:delete": "./scripts/webhook-manager.sh delete",
-    "test": "jest",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "netlify:dev": "netlify dev",
@@ -27,7 +26,13 @@
     "test:ngrok:test": "./scripts/ngrok-test.sh test",
     "test:ngrok:webhook-info": "./scripts/ngrok-test.sh webhook-info",
     "debug:server": "ts-node debug-server.ts",
-    "debug:server:build": "yarn build && node dist/debug-server.js"
+    "debug:server:build": "yarn build && node dist/debug-server.js",
+    "db:seed": "ts-node scripts/seed-supabase-from-env.ts",
+    "db:seed:dry": "ts-node scripts/seed-supabase-from-env.ts --dry-run",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:poll": "yarn build && node scripts/test/test-auto-poll.js text && node scripts/test/test-auto-poll.js scheduler",
+    "test:integration": "yarn build && node scripts/test/test-calendar.js && node scripts/test/test-auto-poll.js && node scripts/test/test-youth-poll.js"
   },
   "keywords": [
     "telegram",
@@ -42,6 +47,7 @@
   "dependencies": {
     "@netlify/functions": "^2.4.0",
     "@notionhq/client": "^2.2.15",
+    "@supabase/supabase-js": "^2.90.1",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -51,15 +57,16 @@
   "devDependencies": {
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
-    "@types/jest": "^29.0.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/node-telegram-bot-api": "^0.64.11",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^8.0.0",
-    "jest": "^29.0.0",
+    "jest": "^30.2.0",
     "netlify-cli": "^23.13.3",
     "nodemon": "^3.0.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
   },

@@ -2,6 +2,7 @@ import { Handler, HandlerEvent } from "@netlify/functions";
 import { sendPollNotification } from "../../src/commands/autoPollCommand";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import { shouldSendNotification } from "../../src/utils/pollScheduler";
+import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { logInfo, logError } from "../../src/utils/logger";
 import { addDays } from "../../src/utils/dateHelper";
 
@@ -14,6 +15,7 @@ import { addDays } from "../../src/utils/dateHelper";
  *   schedule = "0 * * * *"
  */
 export const handler: Handler = async (event: HandlerEvent) => {
+  await ensureAppConfigLoaded();
   logInfo("Poll notification scheduler triggered", {
     eventType: event.httpMethod,
     userAgent: event.headers["user-agent"],

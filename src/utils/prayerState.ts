@@ -4,39 +4,29 @@ import {
   PrayerFormData,
 } from "../types";
 import { logInfo, logWarn } from "./logger";
+import * as stateStore from "./stateStore";
 
-// In-memory storage for user states
-const userStates = new Map<number, PrayerFormState>();
+export async function getPrayerState(userId: number): Promise<PrayerFormState | undefined> {
+  const raw = await stateStore.getState(userId, "prayer");
+  return raw != null ? (raw as unknown as PrayerFormState) : undefined;
+}
 
-/**
- * Get state for a user
- */
-export const getPrayerState = (userId: number): PrayerFormState | undefined => {
-  return userStates.get(userId);
-};
-
-/**
- * Set state for a user
- */
-export const setPrayerState = (
+export async function setPrayerState(
   userId: number,
   state: PrayerFormState
-): void => {
-  userStates.set(userId, state);
+): Promise<void> {
+  await stateStore.setState(userId, "prayer", state as unknown as Record<string, unknown>);
   logInfo("Prayer form state updated", {
     userId,
     step: state.step,
     weekType: state.data.weekType,
   });
-};
+}
 
-/**
- * Initialize new state for a user
- */
-export const initPrayerState = (
+export async function initPrayerState(
   userId: number,
   chatId: number
-): PrayerFormState => {
+): Promise<PrayerFormState> {
   const state: PrayerFormState = {
     userId,
     chatId,
@@ -44,81 +34,61 @@ export const initPrayerState = (
     data: {},
     waitingForTextInput: false,
   };
-  setPrayerState(userId, state);
+  await setPrayerState(userId, state);
   return state;
-};
+}
 
-/**
- * Update step in user state
- */
-export const updatePrayerStep = (
+export async function updatePrayerStep(
   userId: number,
   step: PrayerFormStep
-): void => {
-  const state = getPrayerState(userId);
+): Promise<void> {
+  const state = await getPrayerState(userId);
   if (state) {
     state.step = step;
-    setPrayerState(userId, state);
+    await setPrayerState(userId, state);
   } else {
     logWarn("Attempted to update step for non-existent prayer state", { userId });
   }
-};
+}
 
-/**
- * Update data in user state
- */
-export const updatePrayerData = (
+export async function updatePrayerData(
   userId: number,
   updates: Partial<PrayerFormData>
-): void => {
-  const state = getPrayerState(userId);
+): Promise<void> {
+  const state = await getPrayerState(userId);
   if (state) {
     state.data = { ...state.data, ...updates };
-    setPrayerState(userId, state);
+    await setPrayerState(userId, state);
   } else {
     logWarn("Attempted to update data for non-existent prayer state", { userId });
   }
-};
+}
 
-/**
- * Set waiting for text input flag
- */
-export const setWaitingForTextInput = (
+export async function setWaitingForTextInput(
   userId: number,
   waiting: boolean
-): void => {
-  const state = getPrayerState(userId);
+): Promise<void> {
+  const state = await getPrayerState(userId);
   if (state) {
     state.waitingForTextInput = waiting;
-    setPrayerState(userId, state);
+    await setPrayerState(userId, state);
   }
-};
+}
 
-/**
- * Set message ID for state
- */
-export const setMessageId = (userId: number, messageId: number): void => {
-  const state = getPrayerState(userId);
+export async function setMessageId(userId: number, messageId: number): Promise<void> {
+  const state = await getPrayerState(userId);
   if (state) {
     state.messageId = messageId;
-    setPrayerState(userId, state);
+    await setPrayerState(userId, state);
   }
-};
+}
 
-/**
- * Clear state for a user
- */
-export const clearPrayerState = (userId: number): void => {
-  const deleted = userStates.delete(userId);
-  if (deleted) {
-    logInfo("Prayer form state cleared", { userId });
-  }
-};
+export async function clearPrayerState(userId: number): Promise<void> {
+  await stateStore.deleteState(userId, "prayer");
+  logInfo("Prayer form state cleared", { userId });
+}
 
-/**
- * Check if user has active state
- */
-export const hasActivePrayerState = (userId: number): boolean => {
-  return userStates.has(userId);
-};
-
+export async function hasActivePrayerState(userId: number): Promise<boolean> {
+  const raw = await stateStore.getState(userId, "prayer");
+  return raw != null;
+}

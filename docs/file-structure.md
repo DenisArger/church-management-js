@@ -32,10 +32,6 @@ church-management-js/
 - **`createPollCommand.ts`** - создание простого опроса
   - Создание опроса для молодежной встречи
   
-- **`dailyScriptureCommand.ts`** - получение ежедневного чтения Библии
-  - Запрос из Notion базы данных
-  - Форматирование и отправка
-  
 - **`debugCalendarCommand.ts`** - отладочная команда для календаря
   - Проверка данных в календаре
   
@@ -68,6 +64,18 @@ church-management-js/
   - Извлечение темы и времени
   - Создание опроса в группе
 
+- **`autoPollCommand.ts`** - автоматические опросы по расписанию (poll-sender-scheduler)
+  - `getYouthEventsForDateRange`, `shouldSendPoll` (24 ч до начала)
+  - Только «МОСТ» («Молодежное» — в youth-poll-scheduler)
+
+- **`fillSundayServiceCommand.ts`** - форма заполнения воскресного служения (многошаговая)
+
+- **`editScheduleCommand.ts`** - форма редактирования недельного расписания (многошаговая)
+
+- **`youthReportCommand.ts`** - форма отчёта молодёжи (многошаговая)
+
+- **`showMenuCommand.ts`** - показ главного меню с inline-кнопками
+
 Подробнее: [Команды бота](commands/README.md)
 
 ### `src/services/` - Сервисы для работы с внешними API
@@ -83,11 +91,13 @@ church-management-js/
   - CRUD операции с базами данных
   - Получение молодежных событий
   
-- **`calendarService.ts`** - работа с календарем
-  - Получение воскресных служб (I и II поток)
-  - Получение недельного расписания
-  - Форматирование информации о службах
-  - Отладочные функции
+- **`calendar/`** — календарь и расписание (разбит на подмодули):
+  - **`sundayService.ts`** — воскресные службы (I/II поток): getSundayMeeting, getSundayServiceByDate, create/updateSundayService, formatServiceInfo, getWorshipServices, getScriptureReaders; константы ITEM_TYPE_SUNDAY_1/2; маппинг Notion.
+  - **`weeklySchedule.ts`** — недельное расписание: getWeeklySchedule, getScheduleServiceById, getScheduleServicesForWeek, create/updateScheduleService; маппинг Notion.
+  - **`debug.ts`** — debugCalendarDatabase.
+  - **`index.ts`** — реэкспорт. Публичный API по-прежнему через `calendarService.ts`.
+
+- **`calendarService.ts`** — фасад: реэкспорт из `calendar/`.
 
 Подробнее: [Сервисы](services/README.md)
 
@@ -98,6 +108,11 @@ church-management-js/
   - Проверка авторизации
   - Обработка молитвенных нужд (в приватных чатах)
   - Игнорирование не-команд в группах
+
+- **`scriptureScheduleHandler.ts`** - обработка графика чтений Писания
+  - Парсинг пересланного/вставленного графика
+  - Одна дата (при выбранной в форме) или все даты
+  - Создание/обновление воскресных служб в Notion
 
 ### `src/utils/` - Вспомогательные функции
 
@@ -110,6 +125,15 @@ church-management-js/
 - **`sundayServiceFormatter.ts`** - форматирование воскресных служб
 - **`weeklyScheduleFormatter.ts`** - форматирование недельного расписания
 - **`blessingGenerator.ts`** - генератор благословений
+- **`menuBuilder.ts`** - построение главного меню с inline-кнопками
+- **`stateStore.ts`** - хранение состояния форм (Supabase или in-memory Map)
+- **`prayerState.ts`** / **`prayerFormBuilder.ts`** - состояние и форма для `/add_prayer`
+- **`scheduleState.ts`** / **`scheduleFormBuilder.ts`** - состояние и форма для `/edit_schedule`
+- **`sundayServiceState.ts`** / **`sundayServiceFormBuilder.ts`** - состояние и форма для `/fill_sunday_service`
+- **`youthReportState.ts`** / **`youthReportFormBuilder.ts`** - состояние и форма для `/youth_report`
+- **`pollScheduler.ts`** - `shouldSendPoll`, `shouldSendNotification` для авто-опросов
+- **`pollTextGenerator.ts`** - генерация текста опросов (autoPoll)
+- **`scriptureScheduleParser.ts`** - парсинг графика чтений Писания
 
 Подробнее: [Утилиты](utils/README.md)
 
@@ -120,6 +144,9 @@ church-management-js/
   - Получение конфигурации Notion
   - Получение конфигурации приложения
   - Валидация обязательных переменных
+
+- **`appConfigStore.ts`** - конфиг из Supabase (`app_config`, `allowed_users`) или fallback на `process.env`
+  - `ensureAppConfigLoaded()`, `getAppConfigValue()`, `getAllowedUsers()`
 
 ### `src/types/` - Типы данных
 
@@ -141,15 +168,18 @@ church-management-js/
 ## Директория `netlify/functions/`
 
 - **`telegram-webhook.ts`** - обработчик webhook от Telegram
-  - Прием обновлений от Telegram
+  - Прием обновлений от Telegram (в т.ч. `callback_query`)
   - CORS обработка
-  - Вызов messageHandler
+  - Вызов `handleUpdate`
   - Возврат ответа
-  
-- **`youth-poll-scheduler.ts`** - scheduled функция
-  - Запуск по расписанию (18:00 UTC ежедневно)
-  - Автоматическое создание опроса для молодежи
-  - Проверка события на завтра
+
+- **`youth-poll-scheduler.ts`** - scheduled функция (18:00 UTC ежедневно)
+  - Только «Молодежное»: `getYouthEventForTomorrow` → `executeYouthPollScheduled`
+
+- **`poll-sender-scheduler.ts`** - scheduled функция (каждый час)
+  - События «МОСТ» (без «Молодежное»): `getYouthEventsForDateRange`, `shouldSendPoll` (24 ч до начала) → `executeAutoPollForEvent`
+
+- **`poll-notification-scheduler.ts`** - напоминания о закрытии опросов
 
 Подробнее: [Netlify Functions](netlify-functions.md)
 
@@ -159,7 +189,19 @@ church-management-js/
 - **`deploy.sh`** - деплой в Netlify
 - **`webhook-manager.sh`** - управление webhook
 - **`ngrok-test.sh`** - тестирование с ngrok
+- **`seed-supabase-from-env.ts`** - наполнение Supabase из `.env`
+- **`supabase-schema.sql`** - схема БД (в т.ч. `user_form_state`)
 - **`README.md`** - документация по скриптам
+
+### `scripts/test/` - тестовые скрипты
+
+- **`test-auto-poll.js`**, **`test-auto-poll-scheduler.sh`** - тесты авто-опросов
+- **`test-youth-poll.js`**, **`test-youth-poll-scheduler.sh`** - тесты youth-poll
+- **`test-bot-webhook.sh`**, **`test-webhook.js`** - тесты webhook
+- **`test-debug.sh`** - тесты debug-сервера
+- **`test-most-youth-poll.js`** - тест «большинство придут»
+- **`cron-simulation.sh`** - симуляция cron
+- **`README.md`** - описание тестов (см. также [TESTING-GUIDE.md](../TESTING-GUIDE.md) в корне проекта)
 
 ## Конфигурационные файлы
 
@@ -171,6 +213,8 @@ church-management-js/
 ---
 
 [← Назад к содержанию](README.md) | [Далее: Команды бота →](commands/README.md)
+
+
 
 
 

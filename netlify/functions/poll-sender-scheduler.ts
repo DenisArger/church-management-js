@@ -5,6 +5,7 @@ import {
 } from "../../src/commands/autoPollCommand";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import { shouldSendPoll } from "../../src/utils/pollScheduler";
+import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { logInfo, logError } from "../../src/utils/logger";
 import { sendMessageToUser } from "../../src/services/telegramService";
 import { getTelegramConfig } from "../../src/config/environment";
@@ -18,6 +19,7 @@ import { getTelegramConfig } from "../../src/config/environment";
  *   schedule = "0 * * * *"
  */
 export const handler: Handler = async (event: HandlerEvent) => {
+  await ensureAppConfigLoaded();
   logInfo("Poll sender scheduler triggered", {
     eventType: event.httpMethod,
     userAgent: event.headers["user-agent"],
@@ -36,9 +38,9 @@ export const handler: Handler = async (event: HandlerEvent) => {
       endDate: endDate.toISOString(),
     });
     
-    // Get youth events in the range
+    // Get youth events in the range.
+    // "Молодежное" is excluded: it is handled by youth-poll-scheduler (18:00 UTC) to avoid duplicate polls.
     const events = await getYouthEventsForDateRange(now, endDate, [
-      "Молодежное",
       "МОСТ",
     ]);
     

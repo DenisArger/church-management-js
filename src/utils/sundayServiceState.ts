@@ -4,39 +4,29 @@ import {
   SundayServiceFormData,
 } from "../types";
 import { logInfo, logWarn } from "./logger";
+import * as stateStore from "./stateStore";
 
-// In-memory storage for user states
-const userStates = new Map<number, SundayServiceState>();
+export async function getUserState(userId: number): Promise<SundayServiceState | undefined> {
+  const raw = await stateStore.getState(userId, "sunday_service");
+  return raw != null ? (raw as unknown as SundayServiceState) : undefined;
+}
 
-/**
- * Get state for a user
- */
-export const getUserState = (userId: number): SundayServiceState | undefined => {
-  return userStates.get(userId);
-};
-
-/**
- * Set state for a user
- */
-export const setUserState = (
+export async function setUserState(
   userId: number,
   state: SundayServiceState
-): void => {
-  userStates.set(userId, state);
+): Promise<void> {
+  await stateStore.setState(userId, "sunday_service", state as unknown as Record<string, unknown>);
   logInfo("Sunday service state updated", {
     userId,
     step: state.step,
     mode: state.data.mode,
   });
-};
+}
 
-/**
- * Initialize new state for a user
- */
-export const initUserState = (
+export async function initUserState(
   userId: number,
   chatId: number
-): SundayServiceState => {
+): Promise<SundayServiceState> {
   const state: SundayServiceState = {
     userId,
     chatId,
@@ -44,101 +34,76 @@ export const initUserState = (
     data: {},
     waitingForTextInput: false,
   };
-  setUserState(userId, state);
+  await setUserState(userId, state);
   return state;
-};
+}
 
-/**
- * Update step in user state
- */
-export const updateStep = (
+export async function updateStep(
   userId: number,
   step: SundayServiceStep
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.step = step;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   } else {
     logWarn("Attempted to update step for non-existent state", { userId });
   }
-};
+}
 
-/**
- * Update data in user state
- */
-export const updateStateData = (
+export async function updateStateData(
   userId: number,
   updates: Partial<SundayServiceFormData>
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.data = { ...state.data, ...updates };
-    setUserState(userId, state);
+    await setUserState(userId, state);
   } else {
     logWarn("Attempted to update data for non-existent state", { userId });
   }
-};
+}
 
-/**
- * Set waiting for text input flag
- */
-export const setWaitingForTextInput = (
+export async function setWaitingForTextInput(
   userId: number,
   waiting: boolean
-): void => {
-  const state = getUserState(userId);
+): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.waitingForTextInput = waiting;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   }
-};
+}
 
-/**
- * Set message ID for state
- */
-export const setMessageId = (userId: number, messageId: number): void => {
-  const state = getUserState(userId);
+export async function setMessageId(userId: number, messageId: number): Promise<void> {
+  const state = await getUserState(userId);
   if (state) {
     state.messageId = messageId;
-    setUserState(userId, state);
+    await setUserState(userId, state);
   }
-};
+}
 
-/**
- * Clear state for a user
- */
-export const clearUserState = (userId: number): void => {
-  const deleted = userStates.delete(userId);
-  if (deleted) {
-    logInfo("Sunday service state cleared", { userId });
-  }
-};
+export async function clearUserState(userId: number): Promise<void> {
+  await stateStore.deleteState(userId, "sunday_service");
+  logInfo("Sunday service state cleared", { userId });
+}
 
-/**
- * Check if user has active state
- */
-export const hasActiveState = (userId: number): boolean => {
-  return userStates.has(userId);
-};
+export async function hasActiveState(userId: number): Promise<boolean> {
+  const raw = await stateStore.getState(userId, "sunday_service");
+  return raw != null;
+}
 
-/**
- * Get current stream being filled (for both streams mode)
- */
-export const getCurrentStream = (
+export function getCurrentStream(
   state: SundayServiceState
-): "1" | "2" | undefined => {
+): "1" | "2" | undefined {
   if (state.data.stream === "both") {
     return state.data.currentStream;
   }
   return state.data.stream as "1" | "2" | undefined;
-};
+}
 
-/**
- * Save data for current stream (for both streams mode)
- */
-export const saveCurrentStreamData = (userId: number): void => {
-  const state = getUserState(userId);
+export async function saveCurrentStreamData(userId: number): Promise<void> {
+  const state = await getUserState(userId);
   if (!state || state.data.stream !== "both") {
     return;
   }
@@ -148,7 +113,6 @@ export const saveCurrentStreamData = (userId: number): void => {
     return;
   }
 
-  // Save current data to appropriate stream
   const streamData: Partial<SundayServiceFormData> = {
     title: state.data.title,
     preachers: state.data.preachers,
@@ -167,7 +131,6 @@ export const saveCurrentStreamData = (userId: number): void => {
     state.data.stream2Data = streamData;
   }
 
-  // Clear current data for next stream
   state.data.title = undefined;
   state.data.preachers = undefined;
   state.data.worshipService = undefined;
@@ -178,14 +141,11 @@ export const saveCurrentStreamData = (userId: number): void => {
   state.data.scriptureReading = undefined;
   state.data.scriptureReader = undefined;
 
-  setUserState(userId, state);
-};
+  await setUserState(userId, state);
+}
 
-/**
- * Load data for current stream (for both streams mode)
- */
-export const loadCurrentStreamData = (userId: number): void => {
-  const state = getUserState(userId);
+export async function loadCurrentStreamData(userId: number): Promise<void> {
+  const state = await getUserState(userId);
   if (!state || state.data.stream !== "both") {
     return;
   }
@@ -198,7 +158,6 @@ export const loadCurrentStreamData = (userId: number): void => {
   const streamData =
     currentStream === "1" ? state.data.stream1Data : state.data.stream2Data;
 
-  // Preserve metadata fields
   const metadata = {
     mode: state.data.mode,
     date: state.data.date,
@@ -213,10 +172,8 @@ export const loadCurrentStreamData = (userId: number): void => {
   };
 
   if (streamData) {
-    // Load stream data and preserve metadata
     state.data = { ...metadata, ...streamData };
   } else {
-    // If no saved data, clear stream-specific fields but preserve metadata
     state.data = {
       ...metadata,
       title: undefined,
@@ -230,7 +187,6 @@ export const loadCurrentStreamData = (userId: number): void => {
       scriptureReader: undefined,
     };
   }
-  
-  setUserState(userId, state);
-};
 
+  await setUserState(userId, state);
+}

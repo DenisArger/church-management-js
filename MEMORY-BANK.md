@@ -162,10 +162,6 @@ church-management-js/
 - **`createPollCommand.ts`** - создание простого опроса
   - Создание опроса для молодежной встречи
   
-- **`dailyScriptureCommand.ts`** - получение ежедневного чтения Библии
-  - Запрос из Notion базы данных
-  - Форматирование и отправка
-  
 - **`debugCalendarCommand.ts`** - отладочная команда для календаря
   - Проверка данных в календаре
   
@@ -198,6 +194,12 @@ church-management-js/
   - Извлечение темы и времени
   - Создание опроса в группе
 
+- **`autoPollCommand.ts`** — авто-опросы (poll-sender-scheduler): getYouthEventsForDateRange, shouldSendPoll; только «МОСТ».
+- **`fillSundayServiceCommand.ts`** — многошаговая форма воскресного служения.
+- **`editScheduleCommand.ts`** — многошаговая форма недельного расписания.
+- **`youthReportCommand.ts`** — многошаговая форма отчёта молодёжи.
+- **`showMenuCommand.ts`** — главное меню с inline-кнопками.
+
 #### `src/services/` - Сервисы для работы с внешними API
 
 - **`telegramService.ts`** - работа с Telegram Bot API
@@ -215,11 +217,11 @@ church-management-js/
     - Недельные молитвенные записи
   - Получение молодежных событий
   
-- **`calendarService.ts`** - работа с календарем
-  - Получение воскресных служб (I и II поток)
-  - Получение недельного расписания
-  - Форматирование информации о службах
-  - Отладочные функции
+- **`calendar/`** — календарь и расписание (подмодули); фасад — `calendarService.ts`.
+  - **`sundayService.ts`** — воскресные службы (I/II поток), маппинг Notion.
+  - **`weeklySchedule.ts`** — недельное расписание, маппинг Notion.
+  - **`debug.ts`** — debugCalendarDatabase.
+  - **`index.ts`** — реэкспорт.
 
 #### `src/handlers/` - Обработчики сообщений
 
@@ -228,6 +230,9 @@ church-management-js/
   - Проверка авторизации
   - Обработка молитвенных нужд (в приватных чатах)
   - Игнорирование не-команд в группах
+
+- **`scriptureScheduleHandler.ts`** - обработка графика чтений Писания
+  - Парсинг пересланного/вставленного графика, создание/обновление воскресных служб в Notion
 
 #### `src/utils/` - Вспомогательные функции
 
@@ -274,6 +279,16 @@ church-management-js/
   - Случайный выбор благословения
   - Форматирование для сообщений
 
+- **`menuBuilder.ts`** — меню с inline-кнопками.
+- **`stateStore.ts`** — состояние форм (Supabase или in-memory).
+- **`prayerState.ts`** / **`prayerFormBuilder.ts`** — `/add_prayer`.
+- **`scheduleState.ts`** / **`scheduleFormBuilder.ts`** — `/edit_schedule`.
+- **`sundayServiceState.ts`** / **`sundayServiceFormBuilder.ts`** — `/fill_sunday_service`.
+- **`youthReportState.ts`** / **`youthReportFormBuilder.ts`** — `/youth_report`.
+- **`pollScheduler.ts`** — shouldSendPoll, shouldSendNotification.
+- **`pollTextGenerator.ts`** — текст опросов (autoPoll).
+- **`scriptureScheduleParser.ts`** — парсинг графика чтений.
+
 #### `src/config/` - Конфигурация
 
 - **`environment.ts`** - управление переменными окружения
@@ -281,6 +296,8 @@ church-management-js/
   - Получение конфигурации Notion
   - Получение конфигурации приложения
   - Валидация обязательных переменных
+
+- **`appConfigStore.ts`** — конфиг из Supabase (`app_config`, `allowed_users`) или `process.env`; `ensureAppConfigLoaded()`, `getAppConfigValue()`, `getAllowedUsers()`.
 
 #### `src/types/` - Типы данных
 
@@ -300,15 +317,16 @@ church-management-js/
 ### Директория `netlify/functions/`
 
 - **`telegram-webhook.ts`** - обработчик webhook от Telegram
-  - Прием обновлений от Telegram
+  - Прием обновлений от Telegram (в т.ч. `callback_query`)
   - CORS обработка
-  - Вызов messageHandler
+  - Вызов `handleUpdate`
   - Возврат ответа
-  
-- **`youth-poll-scheduler.ts`** - scheduled функция
-  - Запуск по расписанию (18:00 UTC ежедневно)
-  - Автоматическое создание опроса для молодежи
-  - Проверка события на завтра
+
+- **`youth-poll-scheduler.ts`** - scheduled функция (18:00 UTC ежедневно)
+  - Только «Молодежное»: `getYouthEventForTomorrow` → `executeYouthPollScheduled`
+
+- **`poll-sender-scheduler.ts`** — каждый час; только «МОСТ»; `getYouthEventsForDateRange`, `shouldSendPoll`, `executeAutoPollForEvent`.
+- **`poll-notification-scheduler.ts`** — напоминания о закрытии опросов.
 
 ### Директория `scripts/`
 
@@ -316,7 +334,19 @@ church-management-js/
 - **`deploy.sh`** - деплой в Netlify
 - **`webhook-manager.sh`** - управление webhook
 - **`ngrok-test.sh`** - тестирование с ngrok
+- **`seed-supabase-from-env.ts`** — наполнение Supabase из `.env`
+- **`supabase-schema.sql`** — схема БД (в т.ч. `user_form_state`)
 - **`README.md`** - документация по скриптам
+
+#### `scripts/test/` - тестовые скрипты
+
+- **`test-auto-poll.js`**, **`test-auto-poll-scheduler.sh`** — тесты авто-опросов
+- **`test-youth-poll.js`**, **`test-youth-poll-scheduler.sh`** — тесты youth-poll
+- **`test-bot-webhook.sh`**, **`test-webhook.js`** — тесты webhook
+- **`test-debug.sh`** — тесты debug-сервера
+- **`test-most-youth-poll.js`** — тест «большинство придут»
+- **`cron-simulation.sh`** — симуляция cron
+- **`README.md`** — описание (см. также TESTING-GUIDE в корне)
 
 ### Конфигурационные файлы
 
@@ -434,26 +464,6 @@ export const executeHelpCommand = async (
 **Недели**:
 - `current` - текущая неделя (понедельник - воскресенье)
 - `next` - следующая неделя
-
----
-
-#### `/daily_scripture` - Ежедневное чтение Библии
-
-**Назначение**: Получает и отправляет ежедневное чтение Библии из Notion.
-
-**Параметры**: Нет
-
-**Пример использования**:
-```
-/daily_scripture
-```
-
-**Реализация**: `src/commands/dailyScriptureCommand.ts`
-
-**Данные**:
-- Текст чтения
-- Ссылка на стих
-- Перевод
 
 ---
 
@@ -736,7 +746,9 @@ export const getNotionClient = (): Client => {
 
 ### CalendarService
 
-**Файл**: `src/services/calendarService.ts`
+Реализация в `src/services/calendar/` (sundayService, weeklySchedule, debug); реэкспорт через `calendarService.ts`.
+
+**Файл**: `src/services/calendarService.ts` (фасад), `src/services/calendar/` (подмодули)
 
 **Назначение**: Работа с календарем и расписанием служений.
 
@@ -766,8 +778,12 @@ export const getNotionClient = (): Client => {
 #### Недельное расписание
 
 - **`getWeeklySchedule()`** - получение расписания на предстоящую неделю
+- **`getScheduleServiceById(serviceId)`** — получение служения по ID
+- **`getScheduleServicesForWeek(weekType?)`** — служения на неделю (без фильтра «нужна рассылка»)
+- **`createScheduleService(serviceData)`** — создание служения в Notion
+- **`updateScheduleService(serviceId, serviceData)`** — обновление служения в Notion
 
-**Фильтрация**:
+**Фильтрация** (getWeeklySchedule):
 - События с флагом "нужна рассылка" (checkbox)
 - События на предстоящую неделю
 
@@ -1681,7 +1697,6 @@ ngrok http 8888
 - `/create_poll` - создание опроса
 - `/request_pray` - рассылка молитв
 - `/add_prayer Иван | Здоровье | current` - добавление молитвы
-- `/daily_scripture` - ежедневное чтение
 - `/request_state_sunday` - воскресное служение
 - `/weekly_schedule` - недельное расписание
 - `/prayer_week` - молитвы на неделю
@@ -1760,7 +1775,6 @@ flowchart TD
     G -->|/help| H[helpCommand.ts]
     G -->|/request_pray| I[prayerRequestCommand.ts]
     G -->|/add_prayer| J[addPrayerCommand.ts]
-    G -->|/daily_scripture| K[dailyScriptureCommand.ts]
     G -->|/request_state_sunday| L[requestStateSundayCommand.ts]
     G -->|/weekly_schedule| M[weeklyScheduleCommand.ts]
     G -->|/prayer_week| N[prayerWeekCommand.ts]
@@ -1771,7 +1785,6 @@ flowchart TD
     H --> Q[telegramService.ts]
     I --> R[notionService.ts]
     J --> R
-    K --> R
     L --> S[calendarService.ts]
     M --> S
     N --> R
@@ -1862,14 +1875,13 @@ graph LR
         C1[helpCommand.ts]
         C2[prayerRequestCommand.ts]
         C3[addPrayerCommand.ts]
-        C4[dailyScriptureCommand.ts]
-        C5[requestStateSundayCommand.ts]
-        C6[weeklyScheduleCommand.ts]
-        C7[prayerWeekCommand.ts]
-        C8[youthPollCommand.ts]
-        C9[createPollCommand.ts]
-        C10[debugCalendarCommand.ts]
-        C11[testNotionCommand.ts]
+        C4[requestStateSundayCommand.ts]
+        C5[weeklyScheduleCommand.ts]
+        C6[prayerWeekCommand.ts]
+        C7[youthPollCommand.ts]
+        C8[createPollCommand.ts]
+        C9[debugCalendarCommand.ts]
+        C10[testNotionCommand.ts]
     end
     
     subgraph Services["Services"]
@@ -1899,7 +1911,7 @@ graph LR
     end
     
     WH --> MH
-    SCH --> C8
+    SCH --> C7
     MH --> C1
     MH --> C2
     MH --> C3
@@ -1910,26 +1922,26 @@ graph LR
     MH --> C8
     MH --> C9
     MH --> C10
-    MH --> C11
     
     C2 --> TS
     C2 --> NS
     C3 --> NS
-    C4 --> NS
+    C4 --> CS
     C5 --> CS
-    C6 --> CS
-    C7 --> NS
-    C8 --> CS
+    C6 --> NS
+    C7 --> CS
+    C7 --> TS
     C8 --> TS
-    C9 --> TS
+    C9 --> CS
+    C10 --> NS
     
     CS --> NS
     C1 --> TS
     C2 --> U5
     C3 --> U6
-    C5 --> U7
-    C6 --> U8
-    C8 --> U4
+    C4 --> U7
+    C5 --> U8
+    C7 --> U4
     
     MH --> U2
     MH --> U3
@@ -1951,7 +1963,6 @@ graph LR
     TYPES --> C8
     TYPES --> C9
     TYPES --> C10
-    TYPES --> C11
     TYPES --> TS
     TYPES --> NS
     TYPES --> CS

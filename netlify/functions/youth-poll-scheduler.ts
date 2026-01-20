@@ -1,5 +1,6 @@
 import { Handler, HandlerEvent } from "@netlify/functions";
 import { executeYouthPollScheduled } from "../../src/commands/youthPollCommand";
+import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { logInfo, logError } from "../../src/utils/logger";
 
 /**
@@ -11,6 +12,7 @@ import { logInfo, logError } from "../../src/utils/logger";
  *   schedule = "0 18 * * *"
  */
 export const handler: Handler = async (event: HandlerEvent) => {
+  await ensureAppConfigLoaded();
   logInfo("Youth poll scheduler triggered", {
     eventType: event.httpMethod,
     userAgent: event.headers["user-agent"],

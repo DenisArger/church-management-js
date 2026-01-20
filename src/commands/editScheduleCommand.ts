@@ -1,4 +1,4 @@
-import { CommandResult } from "../types";
+import { CommandResult, ScheduleState } from "../types";
 import { sendMessage } from "../services/telegramService";
 import {
   getUserState,
@@ -42,7 +42,7 @@ export const executeEditScheduleCommand = async (
 
   try {
     // Initialize state
-    const state = initUserState(userId, chatId);
+    const state = await initUserState(userId, chatId);
 
     // Send initial message with mode selection
     const keyboard = buildModeKeyboard();
@@ -52,7 +52,7 @@ export const executeEditScheduleCommand = async (
     });
 
     if (result.success && result.data?.messageId) {
-      setMessageId(userId, result.data.messageId as number);
+      await setMessageId(userId, result.data.messageId as number);
     }
 
     return result;
@@ -77,7 +77,7 @@ export const handleScheduleCallback = async (
   logInfo("Handling schedule callback", { userId, callbackData });
 
   try {
-    const state = getUserState(userId);
+    const state = await getUserState(userId);
     if (!state) {
       return {
         success: false,
@@ -87,7 +87,7 @@ export const handleScheduleCallback = async (
 
     // Update message ID if provided
     if (messageId) {
-      setMessageId(userId, messageId);
+      await setMessageId(userId, messageId);
     }
 
     const parts = callbackData.split(":");
@@ -101,7 +101,7 @@ export const handleScheduleCallback = async (
           return await handleWeekSelection(userId, chatId, parts[2], state);
         } else {
           // Show week selection again
-          updateStep(userId, "select_week");
+          await updateStep(userId, "select_week");
           const keyboard = buildWeekSelectionKeyboard();
           return await sendMessage(chatId, getStepMessage("select_week", state.data), {
             reply_markup: keyboard,
@@ -148,14 +148,14 @@ const handleModeSelection = async (
   userId: number,
   chatId: number,
   mode: string,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
-  updateStateData(userId, { mode: mode as "create" | "edit" });
+  await updateStateData(userId, { mode: mode as "create" | "edit" });
 
   if (mode === "create") {
-    updateStep(userId, "date");
+    await updateStep(userId, "date");
     const keyboard = buildDateKeyboard();
     return await sendMessage(chatId, getStepMessage("date", state.data), {
       reply_markup: keyboard,
@@ -163,7 +163,7 @@ const handleModeSelection = async (
     });
   } else {
     // For edit mode, show week selection first
-    updateStep(userId, "select_week");
+    await updateStep(userId, "select_week");
     const keyboard = buildWeekSelectionKeyboard();
     return await sendMessage(chatId, getStepMessage("select_week", state.data), {
       reply_markup: keyboard,
@@ -179,19 +179,19 @@ const handleWeekSelection = async (
   userId: number,
   chatId: number,
   weekType: string,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   const week = weekType as "current" | "next";
-  updateStateData(userId, { weekType: week });
+  await updateStateData(userId, { weekType: week });
 
   // Get all services for the week (not just those with needsMailing)
   const services = await getScheduleServicesForWeek(week);
   
   // Show preview
-  updateStep(userId, "preview_week");
-  setWaitingForTextInput(userId, false);
+  await updateStep(userId, "preview_week");
+  await setWaitingForTextInput(userId, false);
   
   const previewMessage = formatWeekPreviewMessage(services, week);
   const keyboard = buildWeekPreviewKeyboard();
@@ -208,12 +208,12 @@ const handleWeekSelection = async (
 const handleEditWeek = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state || !state.data.weekType) return { success: false, error: "State or week type not found" };
 
-  updateStep(userId, "select_service");
-  setWaitingForTextInput(userId, false);
+  await updateStep(userId, "select_service");
+  await setWaitingForTextInput(userId, false);
   
   const services = await getScheduleServicesForWeek(state.data.weekType);
   
@@ -240,18 +240,18 @@ const handleDateSelection = async (
   userId: number,
   chatId: number,
   dateStr: string,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   const date = new Date(dateStr);
-  updateStateData(userId, { date });
+  await updateStateData(userId, { date });
 
   // If editing, return to review; otherwise move to title input
   if (state.data.mode === "edit") {
-    updateStep(userId, "review");
-    setWaitingForTextInput(userId, false);
-    const updatedState = getUserState(userId);
+    await updateStep(userId, "review");
+    await setWaitingForTextInput(userId, false);
+    const updatedState = await getUserState(userId);
     if (!updatedState) return { success: false, error: "State not found" };
     const reviewMessage = getStepMessage("review", updatedState.data);
     const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -261,8 +261,8 @@ const handleDateSelection = async (
     });
   } else {
     // Create mode - move to title input
-    updateStep(userId, "title");
-    setWaitingForTextInput(userId, true);
+    await updateStep(userId, "title");
+    await setWaitingForTextInput(userId, true);
     return await sendMessage(chatId, getStepMessage("title", state.data), {
       parse_mode: "HTML",
     });
@@ -276,7 +276,7 @@ const handleServiceSelection = async (
   userId: number,
   chatId: number,
   serviceId: string,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -290,16 +290,16 @@ const handleServiceSelection = async (
     );
   }
 
-  updateStateData(userId, {
+  await updateStateData(userId, {
     serviceId: service.id,
     date: service.date,
     title: service.title,
   });
 
   // Show preview with edit buttons
-  updateStep(userId, "review");
-  setWaitingForTextInput(userId, false);
-  const updatedState = getUserState(userId);
+  await updateStep(userId, "review");
+  await setWaitingForTextInput(userId, false);
+  const updatedState = await getUserState(userId);
   if (!updatedState) return { success: false, error: "State not found" };
   const reviewMessage = getStepMessage("review", updatedState.data);
   const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -315,7 +315,7 @@ const handleServiceSelection = async (
 const handleEdit = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -334,21 +334,21 @@ const handleEditField = async (
   userId: number,
   chatId: number,
   fieldName: string,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
   switch (fieldName) {
     case "title":
-      updateStep(userId, "title");
-      setWaitingForTextInput(userId, true);
+      await updateStep(userId, "title");
+      await setWaitingForTextInput(userId, true);
       return await sendMessage(chatId, getStepMessage("title", state.data), {
         parse_mode: "HTML",
       });
 
     case "date":
-      updateStep(userId, "date");
-      setWaitingForTextInput(userId, false);
+      await updateStep(userId, "date");
+      await setWaitingForTextInput(userId, false);
       const keyboard = buildDateKeyboard();
       return await sendMessage(chatId, "Выберите новую дату:", {
         reply_markup: keyboard,
@@ -371,18 +371,18 @@ export const handleScheduleTextInput = async (
   logInfo("Handling schedule text input", { userId, text: text.substring(0, 50) });
 
   try {
-    const state = getUserState(userId);
+    const state = await getUserState(userId);
     if (!state || !state.waitingForTextInput) {
       return { success: true, message: "Text input ignored" };
     }
 
     switch (state.step) {
       case "title":
-        updateStateData(userId, { title: text.trim() });
+        await updateStateData(userId, { title: text.trim() });
         // Always return to review after editing title
-        updateStep(userId, "review");
-        setWaitingForTextInput(userId, false);
-        const updatedState = getUserState(userId);
+        await updateStep(userId, "review");
+        await setWaitingForTextInput(userId, false);
+        const updatedState = await getUserState(userId);
         if (!updatedState) return { success: false, error: "State not found" };
         const reviewMessage = getStepMessage("review", updatedState.data);
         const reviewKeyboard = buildEditFieldKeyboard(updatedState.data);
@@ -409,7 +409,7 @@ export const handleScheduleTextInput = async (
 const handleConfirm = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) return { success: false, error: "State not found" };
 
@@ -438,7 +438,7 @@ const handleConfirm = async (
           { parse_mode: "HTML", reply_markup: continueKeyboard }
         );
       } else {
-        clearUserState(userId);
+        await clearUserState(userId);
         return await sendMessage(
           chatId,
           `❌ Ошибка при обновлении служения:\n${result.error || "Неизвестная ошибка"}\n\nПопробуйте заполнить заново.`,
@@ -451,7 +451,7 @@ const handleConfirm = async (
         // Save serviceId and switch to edit mode for future updates
         const pageId = result.data?.pageId as string | undefined;
         if (pageId) {
-          updateStateData(userId, {
+          await updateStateData(userId, {
             serviceId: pageId,
             mode: "edit",
           });
@@ -464,7 +464,7 @@ const handleConfirm = async (
           { parse_mode: "HTML", reply_markup: continueKeyboard }
         );
       } else {
-        clearUserState(userId);
+        await clearUserState(userId);
         return await sendMessage(
           chatId,
           `❌ Ошибка при сохранении служения:\n${result.error || "Неизвестная ошибка"}\n\nПопробуйте заполнить заново.`,
@@ -474,7 +474,7 @@ const handleConfirm = async (
     }
   } catch (error) {
     logError("Error confirming schedule", error);
-    clearUserState(userId);
+    await clearUserState(userId);
     const errorMessage =
       error instanceof Error ? error.message : "Неизвестная ошибка";
     return await sendMessage(
@@ -491,7 +491,7 @@ const handleConfirm = async (
 const handleContinueEdit = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   if (!state) {
     return {
@@ -501,8 +501,8 @@ const handleContinueEdit = async (
   }
 
   // Return to review step with edit keyboard
-  updateStep(userId, "review");
-  setWaitingForTextInput(userId, false);
+  await updateStep(userId, "review");
+  await setWaitingForTextInput(userId, false);
   const reviewMessage = getStepMessage("review", state.data);
   const reviewKeyboard = buildEditFieldKeyboard(state.data);
   return await sendMessage(chatId, reviewMessage, {
@@ -517,9 +517,9 @@ const handleContinueEdit = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: ReturnType<typeof getUserState>
+  state: ScheduleState | undefined
 ): Promise<CommandResult> => {
-  clearUserState(userId);
+  await clearUserState(userId);
   return await sendMessage(
     chatId,
     "❌ Редактирование расписания отменено.\n\nВсе несохраненные данные удалены. Вы можете начать заново с команды /edit_schedule",

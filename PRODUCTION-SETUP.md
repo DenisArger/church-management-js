@@ -23,7 +23,18 @@ yarn setup:production
 - Настроит уровень логирования для продакшена
 - Проверит наличие всех обязательных переменных
 
-### 2. Настройка переменных окружения в Netlify
+### 2. Supabase для состояния форм (обязательно в production при использовании форм)
+
+Команды с многошаговыми формами (`/fill_sunday_service`, `/edit_schedule`, `/add_prayer`, `/youth_report`) сохраняют состояние между шагами. В Netlify Functions каждый вызов может выполняться в новом инстансе, поэтому in-memory state между запросами не сохраняется.
+
+**В production при использовании этих форм нужен Supabase:**
+
+- Задайте `SUPABASE_URL` и `SUPABASE_SERVICE_KEY`.
+- Разверните схему: таблица `user_form_state` по [scripts/supabase-schema.sql](scripts/supabase-schema.sql).
+
+Без Supabase заполнение форм в production будет ненадёжным (потеря состояния между шагами).
+
+### 3. Настройка переменных окружения в Netlify
 
 **Важно**: Переменные окружения нужно настроить в Netlify Dashboard, так как они используются при выполнении функций.
 
@@ -75,9 +86,11 @@ TELEGRAM_MAIN_GROUP_ID=your_group_id
 TELEGRAM_YOUTH_GROUP_ID=your_youth_group_id
 ```
 
+**Supabase** (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`): обязательны для production, если используются формы `/fill_sunday_service`, `/edit_schedule`, `/add_prayer`, `/youth_report` (см. раздел 2).
+
 **Примечание**: Debug переменные (`TELEGRAM_BOT_TOKEN_DEBUG`, `TELEGRAM_CHAT_ID_DEBUG`, `TELEGRAM_TOPIC_ID_DEBUG`) не нужны для продакшена.
 
-### 3. Деплой в Netlify
+### 4. Деплой в Netlify
 
 ```bash
 yarn deploy:full
@@ -89,7 +102,7 @@ yarn deploy:full
 ./scripts/deploy.sh
 ```
 
-### 4. Настройка webhook
+### 5. Настройка webhook
 
 После успешного деплоя настройте webhook:
 
@@ -103,7 +116,7 @@ yarn webhook:set
 ./scripts/webhook-manager.sh set-file
 ```
 
-### 5. Проверка webhook
+### 6. Проверка webhook
 
 ```bash
 yarn webhook:info
@@ -201,6 +214,8 @@ yarn webhook:info
 2. ✅ Проверьте работу автоматических опросов
 3. ✅ Настройте мониторинг логов
 4. ✅ Сообщите пользователям о запуске
+
+
 
 
 

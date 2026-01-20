@@ -19,7 +19,6 @@ export function buildMainMenu(): InlineKeyboardMarkup {
 
   // Main commands category
   buttons.push([
-    // { text: "📖 Писание", callback_data: "cmd:daily_scripture" }, // Disabled: functionality not needed
     { text: "📊 Опрос", callback_data: "cmd:create_poll" },
   ]);
 

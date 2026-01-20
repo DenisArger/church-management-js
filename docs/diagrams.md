@@ -14,7 +14,6 @@ flowchart TD
     G -->|/help| H[helpCommand.ts]
     G -->|/request_pray| I[prayerRequestCommand.ts]
     G -->|/add_prayer| J[addPrayerCommand.ts]
-    G -->|/daily_scripture| K[dailyScriptureCommand.ts]
     G -->|/request_state_sunday| L[requestStateSundayCommand.ts]
     G -->|/weekly_schedule| M[weeklyScheduleCommand.ts]
     G -->|/prayer_week| N[prayerWeekCommand.ts]
@@ -24,7 +23,6 @@ flowchart TD
     H --> Q[telegramService.ts]
     I --> R[notionService.ts]
     J --> R
-    K --> R
     L --> S[calendarService.ts]
     M --> S
     N --> R
@@ -108,14 +106,13 @@ graph LR
         C1[helpCommand.ts]
         C2[prayerRequestCommand.ts]
         C3[addPrayerCommand.ts]
-        C4[dailyScriptureCommand.ts]
-        C5[requestStateSundayCommand.ts]
-        C6[weeklyScheduleCommand.ts]
-        C7[prayerWeekCommand.ts]
-        C8[youthPollCommand.ts]
-        C9[createPollCommand.ts]
-        C10[debugCalendarCommand.ts]
-        C11[testNotionCommand.ts]
+        C4[requestStateSundayCommand.ts]
+        C5[weeklyScheduleCommand.ts]
+        C6[prayerWeekCommand.ts]
+        C7[youthPollCommand.ts]
+        C8[createPollCommand.ts]
+        C9[debugCalendarCommand.ts]
+        C10[testNotionCommand.ts]
     end
     
     subgraph Services["Services"]
@@ -156,26 +153,26 @@ graph LR
     MH --> C8
     MH --> C9
     MH --> C10
-    MH --> C11
     
     C2 --> TS
     C2 --> NS
     C3 --> NS
-    C4 --> NS
+    C4 --> CS
     C5 --> CS
-    C6 --> CS
-    C7 --> NS
-    C8 --> CS
+    C6 --> NS
+    C7 --> CS
+    C7 --> TS
     C8 --> TS
-    C9 --> TS
+    C9 --> CS
+    C10 --> NS
     
     CS --> NS
     C1 --> TS
     C2 --> U5
     C3 --> U6
-    C5 --> U7
-    C6 --> U8
-    C8 --> U4
+    C4 --> U7
+    C5 --> U8
+    C7 --> U4
     
     MH --> U2
     MH --> U3
@@ -197,7 +194,6 @@ graph LR
     TYPES --> C8
     TYPES --> C9
     TYPES --> C10
-    TYPES --> C11
     TYPES --> TS
     TYPES --> NS
     TYPES --> CS
