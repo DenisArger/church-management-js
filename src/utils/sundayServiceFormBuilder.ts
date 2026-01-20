@@ -1,7 +1,4 @@
 import { SundayServiceState, SundayServiceFormData } from "../types";
-import { formatServiceInfo } from "../services/calendarService";
-import { SundayServiceInfo, SundayServiceItem } from "../types";
-import { ITEM_TYPE_SUNDAY_1, ITEM_TYPE_SUNDAY_2 } from "../services/calendarService";
 
 // Types for inline keyboard
 interface InlineKeyboardButton {
@@ -29,11 +26,6 @@ const PREDEFINED_PREACHERS_PAGE2 = [
   "Андрей Седюко",
   "Слава Кизин",
   "Дмитрий Атрошенко",
-];
-
-const ALL_PREACHERS = [
-  ...PREDEFINED_PREACHERS_PAGE1,
-  ...PREDEFINED_PREACHERS_PAGE2,
 ];
 
 // Worship services will be loaded from Notion database
@@ -75,7 +67,7 @@ export const buildStreamKeyboard = (): InlineKeyboardMarkup => {
 export const buildDateKeyboard = (): InlineKeyboardMarkup => {
   const today = new Date();
   const currentDay = today.getDay();
-  let daysUntilSunday = currentDay === 0 ? 7 : 7 - currentDay;
+  const daysUntilSunday = currentDay === 0 ? 7 : 7 - currentDay;
   const nextSunday = new Date(today);
   nextSunday.setDate(today.getDate() + daysUntilSunday);
 
@@ -336,7 +328,7 @@ export const buildEditAndSaveKeyboard = (): InlineKeyboardMarkup => {
  * Build keyboard for field selection during edit
  */
 export const buildEditFieldKeyboard = (
-  data: SundayServiceFormData
+  _data: SundayServiceFormData
 ): InlineKeyboardMarkup => {
   const buttons: InlineKeyboardButton[][] = [];
 
@@ -458,11 +450,9 @@ export const formatPreviewMessage = (
  */
 const formatStreamPreview = (
   data: Partial<SundayServiceFormData>,
-  stream: "1" | "2"
+  _stream: "1" | "2"
 ): string => {
   let preview = "";
-
-  const streamType = stream === "1" ? ITEM_TYPE_SUNDAY_1 : ITEM_TYPE_SUNDAY_2;
 
   preview += `📅 <b>Дата:</b> ${data.date ? new Date(data.date).toLocaleDateString("ru-RU") : "не указана"}\n`;
   preview += `📝 <b>Название:</b> ${data.title || "не указано"}\n`;

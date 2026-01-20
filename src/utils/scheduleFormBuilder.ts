@@ -164,7 +164,7 @@ export const buildReviewKeyboard = (): InlineKeyboardMarkup => {
  * Build keyboard for field selection during edit
  */
 export const buildEditFieldKeyboard = (
-  data: ScheduleFormData
+  _data: ScheduleFormData
 ): InlineKeyboardMarkup => {
   const buttons: InlineKeyboardButton[][] = [];
 

@@ -1,4 +1,4 @@
-import { PrayerFormState, PrayerFormData, PrayerFormStep } from "../types";
+import { PrayerFormData, PrayerFormStep } from "../types";
 import { PrayerPersonInfo } from "./messageFormatter";
 
 // Types for inline keyboard
@@ -79,7 +79,7 @@ export const buildPersonSelectionKeyboard = (
 export const getStepMessage = (
   step: PrayerFormStep,
   data: PrayerFormData,
-  people?: PrayerPersonInfo[]
+  _people?: PrayerPersonInfo[]
 ): string => {
   switch (step) {
     case "week":
@@ -107,20 +107,6 @@ export const getStepMessage = (
 };
 
 /**
- * Get person name by index from people array
- * Used to decode callback_data with index
- */
-export const getPersonByIndex = (
-  index: number,
-  people: PrayerPersonInfo[]
-): string | undefined => {
-  if (index >= 0 && index < people.length) {
-    return people[index].person;
-  }
-  return undefined;
-};
-
-/**
  * Build review message before confirmation
  */
 export const buildReviewMessage = (data: PrayerFormData): string => {
@@ -140,7 +126,7 @@ export const buildReviewMessage = (data: PrayerFormData): string => {
  * Build keyboard for topic input with options to use previous week's topics
  */
 export const buildTopicInputKeyboard = (
-  previousTopics: Array<{ topic: string; date: Date }>
+  _previousTopics: Array<{ topic: string; date: Date }>
 ): InlineKeyboardMarkup => {
   const buttons: InlineKeyboardButton[][] = [];
 

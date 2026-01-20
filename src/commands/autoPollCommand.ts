@@ -22,7 +22,6 @@ export const sendPollNotification = async (
 ): Promise<CommandResult> => {
   try {
     const telegramConfig = getTelegramConfig();
-    const appConfig = getAppConfig();
     
     // Get first allowed user as administrator (or use a specific admin ID if configured)
     const adminUsers = telegramConfig.allowedUsers;

@@ -66,6 +66,7 @@
 - `ts-node` - выполнение TypeScript напрямую
 - `nodemon` - автоматическая перезагрузка при разработке
 - `netlify-cli` - CLI для работы с Netlify
+- `jest`, `ts-jest`, `@types/jest` - unit-тесты
 
 ---
 
@@ -107,10 +108,9 @@
                │
 ┌──────────────▼──────────────────────┐
 │   Utils (Helpers)                   │
-│   - logger.ts                        │
-│   - authHelper.ts                   │
-│   - dateHelper.ts                   │
-│   - ... (8 утилит)                   │
+│   - logger.ts, authHelper.ts        │
+│   - dateHelper.ts, menuBuilder.ts   │
+│   - ... (форматтеры, парсеры, state)│
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
@@ -141,9 +141,11 @@ church-management-js/
 ├── scripts/               # Скрипты для деплоя и управления
 ├── dist/                  # Скомпилированный код (генерируется)
 ├── node_modules/          # Зависимости (генерируется)
+├── coverage/              # Отчёт Jest (генерируется, в .gitignore)
 ├── .env                   # Переменные окружения (не в git)
 ├── package.json           # Конфигурация проекта и зависимости
 ├── tsconfig.json          # Конфигурация TypeScript
+├── jest.config.js         # Конфигурация Jest
 ├── netlify.toml           # Конфигурация Netlify
 └── README.md              # Основная документация
 ```
@@ -226,11 +228,10 @@ church-management-js/
 #### `src/handlers/` - Обработчики сообщений
 
 - **`messageHandler.ts`** - главный обработчик сообщений
-  - Маршрутизация команд
-  - Проверка авторизации
-  - Обработка молитвенных нужд (в приватных чатах)
-  - Игнорирование не-команд в группах
-
+  - `handleUpdate(update)` — точка входа (message, callback_query)
+  - Маршрутизация команд, проверка авторизации (isUserAuthorized, isYouthLeader для youth_report)
+  - Обработка молитвенных нужд (в приватных чатах), игнорирование не-команд в группах
+- **`messageHandler.test.ts`** - unit-тесты handleUpdate (/help auth, callback menu:main, no message)
 - **`scriptureScheduleHandler.ts`** - обработка графика чтений Писания
   - Парсинг пересланного/вставленного графика, создание/обновление воскресных служб в Notion
 
@@ -318,9 +319,10 @@ church-management-js/
 
 - **`telegram-webhook.ts`** - обработчик webhook от Telegram
   - Прием обновлений от Telegram (в т.ч. `callback_query`)
-  - CORS обработка
-  - Вызов `handleUpdate`
-  - Возврат ответа
+  - CORS обработка (OPTIONS, POST)
+  - `ensureAppConfigLoaded()`, парсинг body → вызов `handleUpdate(update)`
+  - Возврат ответа (statusCode, headers, body)
+- **`telegram-webhook.test.ts`** - unit-тесты handler (OPTIONS, POST пустой/валидный update)
 
 - **`youth-poll-scheduler.ts`** - scheduled функция (18:00 UTC ежедневно)
   - Только «Молодежное»: `getYouthEventForTomorrow` → `executeYouthPollScheduled`
@@ -338,20 +340,25 @@ church-management-js/
 - **`supabase-schema.sql`** — схема БД (в т.ч. `user_form_state`)
 - **`README.md`** - документация по скриптам
 
-#### `scripts/test/` - тестовые скрипты
+#### `scripts/test/` - интеграционные скрипты
 
+- **`test-calendar.js`** — экспорты calendarService, formatServiceInfo, getSundayMeeting, getWeeklySchedule
 - **`test-auto-poll.js`**, **`test-auto-poll-scheduler.sh`** — тесты авто-опросов
 - **`test-youth-poll.js`**, **`test-youth-poll-scheduler.sh`** — тесты youth-poll
 - **`test-bot-webhook.sh`**, **`test-webhook.js`** — тесты webhook
 - **`test-debug.sh`** — тесты debug-сервера
 - **`test-most-youth-poll.js`** — тест «большинство придут»
 - **`cron-simulation.sh`** — симуляция cron
+- **`require-dist.js`** — загрузка скомпилированных модулей для тестов
 - **`README.md`** — описание (см. также TESTING-GUIDE в корне)
+
+Запуск: `yarn test:integration` (сборка + test-calendar + test-auto-poll + test-youth-poll).
 
 ### Конфигурационные файлы
 
 - **`package.json`** - зависимости и скрипты проекта
-- **`tsconfig.json`** - настройки TypeScript компилятора
+- **`tsconfig.json`** - настройки TypeScript компилятора (`**/*.test.ts` в exclude)
+- **`jest.config.js`** - Jest (preset: ts-jest, testMatch: **/*.test.ts, collectCoverageFrom: src, netlify/functions)
 - **`netlify.toml`** - конфигурация Netlify (build, functions, schedule)
 - **`env.example`** - пример переменных окружения
 
@@ -428,7 +435,7 @@ export const executeHelpCommand = async (
 - Получает все записи из Notion
 - Группирует по людям, находит последнюю дату молитвы
 - Отправляет полный список
-- Отправляет список из 3 человек (сортировка по дате, старые первыми)
+- Отправляет список из 5 человек «давно не молились» (сортировка по дате, старые первыми)
 
 **Режим DEBUG**: В режиме DEBUG рассылка не отправляется.
 
@@ -854,10 +861,11 @@ logInfo("Processing message", {
 
 **Функции**:
 - `isUserAuthorized(userId)` - проверка, авторизован ли пользователь
+- `isYouthLeader(userId)` - проверка, является ли пользователь лидером молодёжи (Notion)
 - `getUnauthorizedMessage()` - сообщение об отказе в доступе
 
 **Логика**:
-- Проверка ID пользователя в списке `ALLOWED_USERS`
+- Проверка ID пользователя в списке `ALLOWED_USERS` (или из app_config/Supabase)
 - Логирование попыток доступа
 - Возврат понятного сообщения об отказе
 
@@ -898,8 +906,9 @@ logInfo("Processing message", {
 - `addDays(date, days)` - добавление дней к дате
 - `isToday(date)` - проверка, является ли дата сегодняшней
 - `isThisWeek(date)` - проверка, находится ли дата в текущей неделе
+- `formatDateForNotion(date)` - YYYY-MM-DD для Notion (локальное время)
 
-**Локализация**: Все функции используют русскую локализацию (`ru-RU`).
+**Локализация**: Все функции используют русскую локализацию (`ru-RU`), кроме `formatDateForNotion`.
 
 ---
 
@@ -911,10 +920,11 @@ logInfo("Processing message", {
 
 **Функции**:
 - `formatAllPeopleMessage(peopleInfo, sortDescription?)` - форматирование полного списка людей
-- `formatThreePeopleMessage(threePeople)` - форматирование списка из 3 человек
+- `formatOldPrayersMessage(oldPeople)` - форматирование списка «давно не молились»
 - `groupPrayerRecordsByPerson(records)` - группировка записей по людям
 - `sortPeopleByName(peopleInfo)` - сортировка по имени
 - `sortPeopleByDate(peopleInfo)` - сортировка по дате
+- `getOldPrayersForSelection(records, limit?)` - топ N по давности молитвы
 
 **Форматирование**:
 - Использование HTML разметки
@@ -1100,11 +1110,11 @@ logInfo("Processing message", {
 **Триггер**: HTTP POST запрос от Telegram
 
 **Функциональность**:
-1. Обработка CORS (preflight запросы)
+1. Обработка CORS (preflight OPTIONS)
 2. Валидация метода (только POST)
-3. Парсинг обновления от Telegram
-4. Вызов `handleMessage` для обработки
-5. Возврат результата
+3. `ensureAppConfigLoaded()`, парсинг body (JSON)
+4. Вызов `handleUpdate(update)` из messageHandler
+5. Возврат результата (statusCode 200/405/500, headers, body)
 
 **Ответы**:
 - `200 OK` - успешная обработка
@@ -1640,6 +1650,20 @@ yarn webhook:delete
 
 ## Тестирование
 
+### Jest unit-тесты
+
+- **`yarn test`** — запуск Jest (unit-тесты)
+- **`yarn test:coverage`** — Jest с отчётом покрытия (каталог `coverage/`, в `.gitignore`)
+- Тесты рядом с исходниками: `**/*.test.ts` (напр. `src/utils/dateHelper.test.ts`, `src/commands/helpCommand.test.ts`, `src/handlers/messageHandler.test.ts`, `netlify/functions/telegram-webhook.test.ts`)
+- `tsconfig.json`: `**/*.test.ts` в `exclude` (Jest компилирует через ts-jest)
+- Покрытие: утилиты (dateHelper, textAnalyzer, prayerInputParser, blessingGenerator, pollScheduler, pollTextGenerator, menuBuilder, authHelper, sundayServiceFormatter, weeklyScheduleFormatter, messageFormatter), команды (help, showMenu, testNotion), messageHandler.handleUpdate, telegram-webhook handler
+
+### Интеграционные скрипты
+
+- **`yarn test:integration`** — сборка + `scripts/test/test-calendar.js` + `test-auto-poll.js` + `test-youth-poll.js`
+- **`yarn test:poll`** — сборка + тесты авто-опросов (text, scheduler)
+- Скрипты в `scripts/test/`: test-calendar, test-auto-poll, test-youth-poll, test-webhook, test-debug и др. (см. scripts/test/README.md, TESTING-GUIDE.md)
+
 ### Локальное тестирование
 
 #### Запуск локального сервера
@@ -1819,7 +1843,7 @@ sequenceDiagram
     
     TG->>WH: POST /telegram-webhook (Update)
     WH->>WH: Parse update
-    WH->>MH: handleMessage(update)
+    WH->>MH: handleUpdate(update)
     MH->>MH: Check authorization
     MH->>MH: Route to command
     
@@ -1987,6 +2011,7 @@ graph LR
 4. **Централизованное логирование** - все логи через единую систему
 5. **Типобезопасность** - полная поддержка TypeScript
 6. **Serverless архитектура** - использование Netlify Functions
+7. **Тестирование** - Jest unit-тесты (`yarn test`, `yarn test:coverage`), интеграционные скрипты (`yarn test:integration`)
 
 ### Полезные ссылки
 
@@ -1997,5 +2022,5 @@ graph LR
 
 ---
 
-*Последнее обновление: 2024*
+*Последнее обновление: 2025*
 

@@ -148,7 +148,7 @@ export const buildReviewKeyboard = (): InlineKeyboardMarkup => {
  * Build keyboard for field selection during edit
  */
 export const buildEditFieldKeyboard = (
-  data: YouthReportFormData
+  _data: YouthReportFormData
 ): InlineKeyboardMarkup => {
   const buttons: InlineKeyboardButton[][] = [];
 
@@ -284,18 +284,5 @@ export const validateFormData = (
     valid: errors.length === 0,
     errors,
   };
-};
-
-/**
- * Get person name by index from people array
- */
-export const getPersonByIndex = (
-  index: number,
-  people: string[]
-): string | undefined => {
-  if (index >= 0 && index < people.length) {
-    return people[index];
-  }
-  return undefined;
 };
 

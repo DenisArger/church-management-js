@@ -15,7 +15,6 @@ import {
   buildWeekSelectionKeyboard,
   buildWeekPreviewKeyboard,
   buildServiceSelectionKeyboard,
-  buildReviewKeyboard,
   buildEditFieldKeyboard,
   buildContinueEditingKeyboard,
   getStepMessage,
@@ -517,7 +516,7 @@ const handleContinueEdit = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: ScheduleState | undefined
+  _state: ScheduleState | undefined
 ): Promise<CommandResult> => {
   await clearUserState(userId);
   return await sendMessage(

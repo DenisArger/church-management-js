@@ -1,5 +1,5 @@
 import { CommandResult, YouthReportState } from "../types";
-import { sendMessage, answerCallbackQuery, sendMessageToUser } from "../services/telegramService";
+import { sendMessage, sendMessageToUser } from "../services/telegramService";
 import { 
   createYouthReportRecord, 
   getYouthPeopleForLeader,
@@ -25,7 +25,6 @@ import {
   buildEditFieldKeyboard,
   buildSkipKeyboard,
   getStepMessage,
-  getPersonByIndex,
   formatPreviewMessage,
   validateFormData,
   COMMUNICATION_TYPES,
@@ -967,7 +966,7 @@ ${reportInput.note ? `📝 <b>Примечание:</b> ${reportInput.note}\n` :
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: YouthReportState | undefined
+  _state: YouthReportState | undefined
 ): Promise<CommandResult> => {
   await clearYouthReportState(userId);
   return await sendMessage(

@@ -35,8 +35,6 @@ import {
   getScriptureReaders,
 } from "../services/calendarService";
 import { logInfo, logError, logWarn } from "../utils/logger";
-import { ITEM_TYPE_SUNDAY_1, ITEM_TYPE_SUNDAY_2 } from "../services/calendarService";
-
 /**
  * Execute /fill_sunday_service command
  * Starts the process of filling Sunday service information
@@ -1186,7 +1184,7 @@ const handleContinueEdit = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: SundayServiceState | undefined
+  _state: SundayServiceState | undefined
 ): Promise<CommandResult> => {
   await clearUserState(userId);
   return await sendMessage(

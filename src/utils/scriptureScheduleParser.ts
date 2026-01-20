@@ -297,7 +297,7 @@ export const parseScriptureSchedule = (
 export const findMatchingScheduleEntry = (
   schedule: ParsedScheduleEntry[],
   targetDate: Date,
-  stream: "1" | "2"
+  _stream: "1" | "2"
 ): ParsedScheduleEntry | null => {
   if (!schedule || schedule.length === 0) {
     return null;

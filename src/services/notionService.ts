@@ -6,7 +6,6 @@ import {
   DailyScripture,
   PrayerRecord,
   WeeklyPrayerInput,
-  YouthReportInput,
   CommandResult,
   NotionRichText,
   NotionSelect,
@@ -455,7 +454,6 @@ const extractThemeFromProperties = (
   ];
 
   let themeValue = "";
-  let themeFieldName = "";
 
   for (const fieldName of possibleThemeFields) {
     const themeProp = properties[fieldName] as NotionRichText;
@@ -464,7 +462,6 @@ const extractThemeFromProperties = (
       themeProp.rich_text[0].text.content.trim()
     ) {
       themeValue = themeProp.rich_text[0].text.content.trim();
-      themeFieldName = fieldName;
       logInfo(`Found theme in field: ${fieldName}`, { theme: themeValue });
       break;
     }
@@ -486,7 +483,6 @@ const extractThemeFromProperties = (
       const match = title.match(pattern);
       if (match && match[1]) {
         themeValue = match[1].trim();
-        themeFieldName = "Название служения (extracted)";
         logInfo(`Extracted theme from title`, { theme: themeValue });
         break;
       }
@@ -509,7 +505,6 @@ const extractThemeFromProperties = (
       const match = description.match(pattern);
       if (match) {
         themeValue = match[1].trim();
-        themeFieldName = "Описание (extracted)";
         logInfo(`Extracted theme from description`, { theme: themeValue });
         break;
       }
@@ -781,17 +776,12 @@ export const getYouthPeopleForLeader = async (
       });
 
       const personProperty = database.properties["Человек"] as any;
-      const leaderProperty = database.properties["Лидер"] as any;
 
       if (
         personProperty &&
         personProperty.type === "select" &&
         personProperty.select?.options
       ) {
-        const allOptions = personProperty.select.options.map(
-          (opt: any) => opt.name
-        );
-        
         // If we have options from schema, filter by existing reports for this leader
         // to show only people that this leader has worked with
         // Handle pagination to get all records

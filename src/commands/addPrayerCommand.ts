@@ -1,5 +1,5 @@
 import { CommandResult, PrayerFormState } from "../types";
-import { sendMessage, answerCallbackQuery } from "../services/telegramService";
+import { sendMessage } from "../services/telegramService";
 import { createWeeklyPrayerRecord, getWeeklyPrayerRecords } from "../services/notionService";
 import { logInfo, logWarn, logError } from "../utils/logger";
 import {
@@ -24,13 +24,9 @@ import {
   buildTopicInputKeyboard,
   buildPreviousTopicsKeyboard,
   getStepMessage,
-  getPersonByIndex,
   buildReviewMessage,
 } from "../utils/prayerFormBuilder";
-import {
-  getOldPrayersForSelection,
-  PrayerPersonInfo,
-} from "../utils/messageFormatter";
+import { getOldPrayersForSelection } from "../utils/messageFormatter";
 
 
 /**
@@ -102,7 +98,7 @@ export const handlePrayerCallback = async (
       if (callbackData.startsWith("prayer:person:")) {
         // Try to reinitialize state and show person selection again
         // This handles the case where state was lost in serverless environment
-        const newState = await initPrayerState(userId, chatId);
+        await initPrayerState(userId, chatId);
         // Try to get week type from previous message or default to current
         // For now, default to current week
         await updatePrayerData(userId, { weekType: "current" });
@@ -303,18 +299,6 @@ const handlePersonSelection = async (
  */
 const normalizePersonName = (name: string): string => {
   return name.trim().replace(/\s+/g, " ");
-};
-
-/**
- * Compare dates by date only (ignoring time)
- * Returns true if dates are on the same day
- */
-const isSameDate = (date1: Date, date2: Date): boolean => {
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
 };
 
 /**
@@ -736,7 +720,7 @@ const handleConfirm = async (
 const handleCancel = async (
   userId: number,
   chatId: number,
-  state: PrayerFormState | undefined
+  _state: PrayerFormState | undefined
 ): Promise<CommandResult> => {
   await clearPrayerState(userId);
   return await sendMessage(
