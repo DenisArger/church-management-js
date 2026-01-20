@@ -3,6 +3,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 let supabase: SupabaseClient | null | undefined = undefined;
 let appConfigCache: Map<string, string> | null = null;
 let allowedUsersCache: number[] | null = null;
+let appConfigLoadedAt: number | null = null;
+
+/** TTL for app_config cache (ms). Supabase changes take effect after this. */
+const APP_CONFIG_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function getClient(): SupabaseClient | null {
   if (supabase !== undefined) return supabase;
@@ -21,11 +25,23 @@ function getClient(): SupabaseClient | null {
 }
 
 export async function ensureAppConfigLoaded(): Promise<void> {
-  if (appConfigCache !== null) return;
+  const now = Date.now();
+  if (
+    appConfigCache !== null &&
+    appConfigLoadedAt !== null &&
+    now - appConfigLoadedAt < APP_CONFIG_TTL_MS
+  ) {
+    return;
+  }
+  appConfigCache = null;
+  allowedUsersCache = null;
+  appConfigLoadedAt = null;
+
   const client = getClient();
   if (!client) {
-    appConfigCache = appConfigCache ?? new Map();
-    allowedUsersCache = allowedUsersCache ?? null;
+    appConfigCache = new Map();
+    allowedUsersCache = null;
+    appConfigLoadedAt = now;
     return;
   }
   try {
@@ -48,6 +64,7 @@ export async function ensureAppConfigLoaded(): Promise<void> {
   } catch {
     allowedUsersCache = allowedUsersCache ?? null;
   }
+  appConfigLoadedAt = now;
 }
 
 export function getAllowedUsers(): number[] | null {

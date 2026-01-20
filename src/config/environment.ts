@@ -44,11 +44,24 @@ export const getNotionConfig = () => ({
   youthLeadersDatabase: process.env.NOTION_YOUTH_LEADERS_DATABASE,
 });
 
+/** Normalize config value: trim, lowercase, accept "1"/"0". */
+function normalizeBool(val: unknown): string {
+  const s = String(val ?? "").trim().toLowerCase();
+  if (s === "1") return "true";
+  if (s === "0") return "false";
+  return s;
+}
+
 export const getAppConfig = () => {
-  const debugVal = getAppConfigValue("DEBUG") ?? process.env.DEBUG;
-  const nodeEnvVal = getAppConfigValue("NODE_ENV") ?? process.env.NODE_ENV;
+  const debugRaw = getAppConfigValue("DEBUG") ?? process.env.DEBUG;
+  const nodeEnvRaw = getAppConfigValue("NODE_ENV") ?? process.env.NODE_ENV;
+  const debugVal = normalizeBool(debugRaw);
+  const nodeEnvVal = (String(nodeEnvRaw ?? "").trim().toLowerCase()) || "development";
+
+  // isDebug: only true if DEBUG is explicitly "true"/"1", or in development and not explicitly "false"/"0"
   const isDebug =
-    debugVal === "true" || (nodeEnvVal === "development" && debugVal !== "false");
+    debugVal === "true" ||
+    (nodeEnvVal === "development" && debugVal !== "false");
 
   return {
     nodeEnv: nodeEnvVal || "development",
