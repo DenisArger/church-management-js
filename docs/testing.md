@@ -1,4 +1,4 @@
-# Тестирование
+﻿# Тестирование
 
 ## Локальное тестирование
 
@@ -60,7 +60,7 @@ ngrok http 8888
 - `/request_state_sunday` - воскресное служение
 - `/weekly_schedule` - недельное расписание
 - `/prayer_week` - молитвы на неделю
-- Опросы для молодежи создаются автоматически (youth-poll-scheduler)
+- Опросы для молодежи создаются автоматически (poll-scheduler)
 
 ## Debug режим
 
@@ -89,7 +89,7 @@ NODE_ENV=development
 yarn netlify:dev
 
 # В другом терминале - вызов функции
-curl -X POST http://localhost:8888/.netlify/functions/youth-poll-scheduler
+curl -X POST http://localhost:8888/.netlify/functions/poll-scheduler
 ```
 
 ### Проверка логов
@@ -120,6 +120,7 @@ curl -X POST http://localhost:8888/.netlify/functions/youth-poll-scheduler
 ---
 
 [← Назад к содержанию](README.md)
+
 
 
 

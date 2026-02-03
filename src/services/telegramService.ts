@@ -33,7 +33,12 @@ export const getTelegramConfigForMode = (isDebug: boolean) => {
   const config = getTelegramConfig();
   const appConfig = getAppConfig();
 
-  if (isDebug || appConfig.debug) {
+  const debugRaw = String(process.env.DEBUG ?? "").trim().toLowerCase();
+  const hasDebugOverride = debugRaw === "true" || debugRaw === "false" || debugRaw === "1" || debugRaw === "0";
+  const debugOverride = debugRaw === "true" || debugRaw === "1";
+  const effectiveDebug = hasDebugOverride ? debugOverride : (isDebug || appConfig.debug);
+
+  if (effectiveDebug) {
     return {
       bot: getDebugTelegramBot(),
       chatId: config.debugChatId ? parseInt(config.debugChatId) : null,

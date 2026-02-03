@@ -10,18 +10,8 @@
 [functions]
   node_bundler = "esbuild"
 
-# Scheduled function for automatic youth poll creation
-# Runs daily at 18:00 UTC (21:00 Moscow time)
-[functions."youth-poll-scheduler"]
-  schedule = "0 18 * * *"
-
-# Scheduled function for poll notifications to administrator
-# Runs every hour to check for events starting in 3 hours
-[functions."poll-notification-scheduler"]
-  schedule = "0 * * * *"
-
-# Scheduled function for automatic poll sending
-# Runs every hour to check for events that need polls sent
-[functions."poll-sender-scheduler"]
-  schedule = "0 * * * *"
+# Scheduled function for polls and notifications
+# Runs every 15 minutes
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 

@@ -106,12 +106,12 @@ netlify dev
 
 ```bash
 # Тест уведомлений
-curl -X POST http://localhost:8888/.netlify/functions/poll-notification-scheduler \
+curl -X POST http://localhost:8888/.netlify/functions/poll-scheduler \
   -H "Content-Type: application/json" \
   -d '{"httpMethod": "POST"}'
 
 # Тест отправки опросов
-curl -X POST http://localhost:8888/.netlify/functions/poll-sender-scheduler \
+curl -X POST http://localhost:8888/.netlify/functions/poll-scheduler \
   -H "Content-Type: application/json" \
   -d '{"httpMethod": "POST"}'
 ```
@@ -210,8 +210,8 @@ console.log('Result:', result);
 После развертывания проверьте логи Netlify:
 
 ```bash
-netlify logs:function poll-notification-scheduler
-netlify logs:function poll-sender-scheduler
+netlify logs:function poll-scheduler
+netlify logs:function poll-scheduler
 ```
 
 ### 2. Проверка расписания
@@ -219,11 +219,11 @@ netlify logs:function poll-sender-scheduler
 Убедитесь, что функции настроены в `netlify.toml`:
 
 ```toml
-[functions."poll-notification-scheduler"]
-  schedule = "0 * * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 
-[functions."poll-sender-scheduler"]
-  schedule = "0 * * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 ```
 
 ### 3. Мониторинг
@@ -262,4 +262,5 @@ netlify logs:function poll-sender-scheduler
 
 - [Документация Netlify Scheduled Functions](https://docs.netlify.com/functions/trigger-on-events/#scheduled-functions)
 - [Документация Telegram Bot API](https://core.telegram.org/bots/api)
+
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Test script for Netlify auto poll scheduler functions
-# Tests both local Netlify dev and deployed functions
+# Test script for Netlify poll scheduler function
+# Tests both local Netlify dev and deployed function
 
 set -e
 
@@ -117,12 +117,12 @@ main() {
     local command="$1"
     local netlify_url="$2"
     
-    print_status "Auto Poll Scheduler Test Script"
+    print_status "Poll Scheduler Test Script"
     echo ""
     
     case "$command" in
         local)
-            print_status "Testing local Netlify dev functions..."
+            print_status "Testing local Netlify dev function..."
             echo ""
             
             # Check if netlify dev is running
@@ -132,9 +132,7 @@ main() {
                 exit 1
             fi
             
-            test_local_function "poll-notification-scheduler"
-            echo ""
-            test_local_function "poll-sender-scheduler"
+            test_local_function "poll-scheduler"
             ;;
             
         deployed)
@@ -144,22 +142,20 @@ main() {
                 exit 1
             fi
             
-            print_status "Testing deployed Netlify functions..."
+            print_status "Testing deployed Netlify function..."
             echo ""
             
-            test_deployed_function "poll-notification-scheduler" "$netlify_url"
-            echo ""
-            test_deployed_function "poll-sender-scheduler" "$netlify_url"
+            test_deployed_function "poll-scheduler" "$netlify_url"
             ;;
             
         *)
-            echo "Auto Poll Scheduler Test Script"
+            echo "Poll Scheduler Test Script"
             echo ""
             echo "Usage: $0 [command] [options]"
             echo ""
             echo "Commands:"
-            echo "  local                    - Test local Netlify dev functions"
-            echo "  deployed <netlify-url>   - Test deployed Netlify functions"
+            echo "  local                    - Test local Netlify dev function"
+            echo "  deployed <netlify-url>   - Test deployed Netlify function"
             echo ""
             echo "Examples:"
             echo "  $0 local"

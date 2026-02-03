@@ -122,13 +122,14 @@ export const generatePollContent = (
 ): { question: string; options: [string, string] } => {
   const time = extractTimeFromEvent(event.date);
   const eventType = getEventType(event);
+  const youthTheme = event.theme || event.title;
 
   let question: string;
 
   if (eventType === "most") {
     question = generateMostQuestion(time);
   } else {
-    question = generateYouthServiceQuestion(time, event.theme);
+    question = generateYouthServiceQuestion(time, youthTheme);
   }
 
   const options = getRandomPollOptions();

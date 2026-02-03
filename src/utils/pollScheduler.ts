@@ -1,5 +1,33 @@
 import { logInfo, logWarn } from "./logger";
 
+const MOSCOW_TIMEZONE = "Europe/Moscow";
+
+const toMoscowTimestamp = (date: Date): number => {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: MOSCOW_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const pick = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value || "0");
+
+  const year = pick("year");
+  const month = pick("month");
+  const day = pick("day");
+  const hour = pick("hour");
+  const minute = pick("minute");
+  const second = pick("second");
+
+  return Date.UTC(year, month - 1, day, hour, minute, second, 0);
+};
+
 /**
  * Calculate poll send time: exactly 24 hours before event at the same time
  */
@@ -21,7 +49,7 @@ export const calculatePollSendTime = (eventDate: Date): Date => {
 
 /**
  * Check if poll should be sent now (exactly 24 hours before event at the same time)
- * Poll can be sent within 2 minutes after the calculated send time for reliability
+ * Poll can be sent within 15 minutes after the calculated send time for reliability
  */
 export const shouldSendPoll = (
   eventDate: Date,
@@ -38,12 +66,12 @@ export const shouldSendPoll = (
   
   const sendTime = calculatePollSendTime(eventDate);
   
-  // Check if current time is at or past the send time, but not more than 2 minutes past
+  // Check if current time is at or past the send time, but not more than 15 minutes past
   const timeDiff = currentTime.getTime() - sendTime.getTime();
-  const twoMinutesInMs = 2 * 60 * 1000; // 2 minutes window
+  const fifteenMinutesInMs = 15 * 60 * 1000; // 15 minutes window
   
-  // Allow sending if we're within 2 minutes after the calculated send time
-  if (timeDiff >= 0 && timeDiff < twoMinutesInMs) {
+  // Allow sending if we're within 15 minutes after the calculated send time
+  if (timeDiff >= 0 && timeDiff < fifteenMinutesInMs) {
     logInfo("Should send poll now", {
       eventDate: eventDate.toISOString(),
       sendTime: sendTime.toISOString(),
@@ -62,7 +90,7 @@ export const shouldSendPoll = (
       minutesUntilSend: Math.round(-timeDiff / (60 * 1000)),
     });
   } else {
-    logWarn("Send time has passed (more than 2 minutes ago)", {
+    logWarn("Send time has passed (more than 15 minutes ago)", {
       eventDate: eventDate.toISOString(),
       sendTime: sendTime.toISOString(),
       currentTime: currentTime.toISOString(),
@@ -75,31 +103,34 @@ export const shouldSendPoll = (
 
 /**
  * Check if notification should be sent (exactly 3 hours before event)
- * Notification can be sent within 10 minutes after 3 hours before event for reliability
+ * Notification can be sent within 15 minutes after 3 hours before event for reliability
  */
 export const shouldSendNotification = (
   eventDate: Date,
   currentTime: Date = new Date()
 ): boolean => {
-  // Calculate 3 hours before event
-  const threeHoursBefore = new Date(eventDate);
-  threeHoursBefore.setHours(threeHoursBefore.getHours() - 3);
-  
-  // Check if current time is at or past 3 hours before event, but not more than 10 minutes past
-  const timeDiff = currentTime.getTime() - threeHoursBefore.getTime();
-  const tenMinutesInMs = 10 * 60 * 1000; // 10 minutes window
-  
-  // Allow sending if we're within 10 minutes after 3 hours before event
-  if (timeDiff >= 0 && timeDiff < tenMinutesInMs) {
+  // Notification should be sent 3 hours before poll send time.
+  // Poll send time is 24h before event, so notification time is 27h before event.
+  const eventMoscowMs = toMoscowTimestamp(eventDate);
+  const nowMoscowMs = toMoscowTimestamp(currentTime);
+  const notificationTimeMs = eventMoscowMs - 27 * 60 * 60 * 1000;
+
+  // Allow a 15-minute window on both sides of notification time
+  const timeDiff = nowMoscowMs - notificationTimeMs;
+  const fifteenMinutesInMs = 15 * 60 * 1000; // 15 minutes window
+
+  if (Math.abs(timeDiff) < fifteenMinutesInMs) {
     logInfo("Should send notification now", {
       eventDate: eventDate.toISOString(),
-      threeHoursBefore: threeHoursBefore.toISOString(),
       currentTime: currentTime.toISOString(),
+      eventMoscow: new Date(eventMoscowMs).toISOString(),
+      notificationTimeMoscow: new Date(notificationTimeMs).toISOString(),
+      currentTimeMoscow: new Date(nowMoscowMs).toISOString(),
       timeDiffMinutes: Math.round(timeDiff / (60 * 1000)),
     });
     return true;
   }
-  
+
   return false;
 };
 

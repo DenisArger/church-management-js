@@ -209,9 +209,9 @@ show_help() {
     echo "  help                       Show this help"
     echo
     echo "Examples:"
-    echo "  $0 trigger http://localhost:8889/.netlify/functions/youth-poll-scheduler"
-    echo "  $0 start http://localhost:8889/.netlify/functions/youth-poll-scheduler 1800"
-    echo "  $0 start https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/youth-poll-scheduler 3600"
+    echo "  $0 trigger http://localhost:8889/.netlify/functions/poll-scheduler"
+    echo "  $0 start http://localhost:8889/.netlify/functions/poll-scheduler 900"
+    echo "  $0 start https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/poll-scheduler 900"
     echo "  $0 stop"
     echo "  $0 status"
     echo "  $0 logs 100"

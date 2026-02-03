@@ -1,4 +1,4 @@
-# Структура файлов и директорий
+﻿# Структура файлов и директорий
 
 ## Корневая структура
 
@@ -64,9 +64,9 @@ church-management-js/
   - Извлечение темы и времени
   - Создание опроса в группе
 
-- **`autoPollCommand.ts`** - автоматические опросы по расписанию (poll-sender-scheduler)
+- **`autoPollCommand.ts`** - автоматические опросы по расписанию (poll-scheduler)
   - `getYouthEventsForDateRange`, `shouldSendPoll` (24 ч до начала)
-  - Только «МОСТ» («Молодежное» — в youth-poll-scheduler)
+  - Только «МОСТ» («Молодежное» — в poll-scheduler)
 
 - **`fillSundayServiceCommand.ts`** - форма заполнения воскресного служения (многошаговая)
 
@@ -173,13 +173,9 @@ church-management-js/
   - Вызов `handleUpdate`
   - Возврат ответа
 
-- **`youth-poll-scheduler.ts`** - scheduled функция (18:00 UTC ежедневно)
-  - Только «Молодежное»: `getYouthEventForTomorrow` → `executeYouthPollScheduled`
-
-- **`poll-sender-scheduler.ts`** - scheduled функция (каждый час)
-  - События «МОСТ» (без «Молодежное»): `getYouthEventsForDateRange`, `shouldSendPoll` (24 ч до начала) → `executeAutoPollForEvent`
-
-- **`poll-notification-scheduler.ts`** - напоминания о закрытии опросов
+- **`poll-scheduler.ts`** - scheduled функция (каждые 15 минут)
+  - Опросы для «Молодежное» и «МОСТ»: `getYouthEventsForDateRange`, `shouldSendPoll` (за 24 ч) → `executeAutoPollForEvent`
+  - Уведомления админу: `shouldSendNotification` (за 3 ч) → `sendPollNotification`
 
 Подробнее: [Netlify Functions](netlify-functions.md)
 
@@ -196,7 +192,7 @@ church-management-js/
 ### `scripts/test/` - тестовые скрипты
 
 - **`test-auto-poll.js`**, **`test-auto-poll-scheduler.sh`** - тесты авто-опросов
-- **`test-youth-poll.js`**, **`test-youth-poll-scheduler.sh`** - тесты youth-poll
+- **`test-youth-poll.js`** - тесты youth-poll
 - **`test-bot-webhook.sh`**, **`test-webhook.js`** - тесты webhook
 - **`test-debug.sh`** - тесты debug-сервера
 - **`test-most-youth-poll.js`** - тест «большинство придут»
@@ -213,6 +209,7 @@ church-management-js/
 ---
 
 [← Назад к содержанию](README.md) | [Далее: Команды бота →](commands/README.md)
+
 
 
 

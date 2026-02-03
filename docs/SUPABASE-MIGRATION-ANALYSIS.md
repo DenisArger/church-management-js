@@ -1,4 +1,4 @@
-# Анализ: миграция на Supabase и логирование
+﻿# Анализ: миграция на Supabase и логирование
 
 ## Текущее состояние проекта
 
@@ -63,7 +63,7 @@ create table app_logs (
   data jsonb,                        -- доп. контекст (userId, command, error, etc.)
   user_id bigint,                    -- Telegram user id, если есть
   command text,                      -- например: /prayer, /schedule
-  source text,                       -- 'webhook' | 'youth-poll-scheduler' | 'poll-sender-scheduler' | ...
+  source text,                       -- 'webhook' | 'poll-scheduler' | 'poll-scheduler' | ...
   request_id text                    -- опционально: для связки логов одного запроса
 );
 
@@ -167,7 +167,7 @@ yarn add @supabase/supabase-js
 - **user_id, command:** в `messageHandler` и командах при вызове `logInfo`/`logError` и т.п. передавать в `data`:
   - `data: { userId: update.message.from.id, command: 'prayer' }`.
   В `logger` при наличии `data.userId` и `data.command` копировать в поля `user_id`, `command` и не дублировать в `data`, чтобы не раздувать `data`.
-- **source:** в Netlify Functions в `handler` в самом начале (или через небольшой wrapper) устанавливать, например, `process.env.LOG_SOURCE = 'telegram-webhook' | 'youth-poll-scheduler' | ...` и в `logger` читать `process.env.LOG_SOURCE` в поле `source`. Для локального запуска — `LOG_SOURCE=local` или не задано.
+- **source:** в Netlify Functions в `handler` в самом начале (или через небольшой wrapper) устанавливать, например, `process.env.LOG_SOURCE = 'telegram-webhook' | 'poll-scheduler' | ...` и в `logger` читать `process.env.LOG_SOURCE` в поле `source`. Для локального запуска — `LOG_SOURCE=local` или не задано.
 
 ### 2.4. Ограничения и политики
 
@@ -362,3 +362,4 @@ NODE_ENV=production
 | **Notion (молитвы, календарь, служения, отчёты и т.д.)** | Оставить в Notion | Рабочий процесс и экономия усилий на миграции |
 
 Если нужно, можно следующим шагом расписать конкретные патчи для `logger.ts`, для `app_config` (чтение в `environment.ts`) и для одного из `*State.ts` (например, `prayerState`) в виде пошаговых правок кода.
+

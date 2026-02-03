@@ -37,7 +37,7 @@
 - Управление молитвенными нуждами и записями
 - Автоматическое создание опросов для молодежных встреч
 - Получение информации о воскресных служениях
-- Ежедневное чтение Библии
+- каждые 15 минуте чтение Библии
 - Недельное расписание служений
 - Интеграция с Notion для хранения данных
 
@@ -84,7 +84,7 @@
 ┌─────────────────────────────────────┐
 │   Netlify Functions (Entry Point)   │
 │   - telegram-webhook.ts             │
-│   - youth-poll-scheduler.ts          │
+│   - poll-scheduler.ts          │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
@@ -196,7 +196,7 @@ church-management-js/
   - Извлечение темы и времени
   - Создание опроса в группе
 
-- **`autoPollCommand.ts`** — авто-опросы (poll-sender-scheduler): getYouthEventsForDateRange, shouldSendPoll; только «МОСТ».
+- **`autoPollCommand.ts`** — авто-опросы (poll-scheduler): getYouthEventsForDateRange, shouldSendPoll; только «МОСТ».
 - **`fillSundayServiceCommand.ts`** — многошаговая форма воскресного служения.
 - **`editScheduleCommand.ts`** — многошаговая форма недельного расписания.
 - **`youthReportCommand.ts`** — многошаговая форма отчёта молодёжи.
@@ -215,7 +215,7 @@ church-management-js/
   - CRUD операции с базами данных:
     - Молитвенные нужды
     - Календарь
-    - Ежедневное чтение
+    - каждые 15 минуте чтение
     - Недельные молитвенные записи
   - Получение молодежных событий
   
@@ -324,11 +324,11 @@ church-management-js/
   - Возврат ответа (statusCode, headers, body)
 - **`telegram-webhook.test.ts`** - unit-тесты handler (OPTIONS, POST пустой/валидный update)
 
-- **`youth-poll-scheduler.ts`** - scheduled функция (18:00 UTC ежедневно)
-  - Только «Молодежное»: `getYouthEventForTomorrow` → `executeYouthPollScheduled`
+- **`poll-scheduler.ts`** - scheduled функция (*/15 мин каждые 15 минут)
+  - Только «Молодежное»: `getYouthEventForTomorrow` → `executeAutoPollForEvent`
 
-- **`poll-sender-scheduler.ts`** — каждый час; только «МОСТ»; `getYouthEventsForDateRange`, `shouldSendPoll`, `executeAutoPollForEvent`.
-- **`poll-notification-scheduler.ts`** — напоминания о закрытии опросов.
+- **`poll-scheduler.ts`** — каждые 15 минут; только «МОСТ»; `getYouthEventsForDateRange`, `shouldSendPoll`, `executeAutoPollForEvent`.
+- **`poll-scheduler.ts`** — напоминания о закрытии опросов.
 
 ### Директория `scripts/`
 
@@ -344,7 +344,7 @@ church-management-js/
 
 - **`test-calendar.js`** — экспорты calendarService, formatServiceInfo, getSundayMeeting, getWeeklySchedule
 - **`test-auto-poll.js`**, **`test-auto-poll-scheduler.sh`** — тесты авто-опросов
-- **`test-youth-poll.js`**, **`test-youth-poll-scheduler.sh`** — тесты youth-poll
+- **`test-youth-poll.js`**, **`test-auto-poll-scheduler.sh`** — тесты youth-poll
 - **`test-bot-webhook.sh`**, **`test-webhook.js`** — тесты webhook
 - **`test-debug.sh`** — тесты debug-сервера
 - **`test-most-youth-poll.js`** — тест «большинство придут»
@@ -554,11 +554,11 @@ export const executeHelpCommand = async (
 
 **Назначение**: Опросы о посещении молодежного служения создаются **автоматически** через Netlify Scheduled Function.
 
-**Автоматизация**: Опросы создаются автоматически ежедневно в **18:00 UTC (21:00 по Москве)** через функцию `youth-poll-scheduler`.
+**Автоматизация**: Опросы создаются автоматически каждые 15 минут в **каждые 15 минут** через функцию `poll-scheduler`.
 
 **Реализация**: 
-- `netlify/functions/youth-poll-scheduler.ts` - scheduled функция
-- `src/commands/youthPollCommand.ts` - функция `executeYouthPollScheduled`
+- `netlify/functions/poll-scheduler.ts` - scheduled функция
+- `src/commands/youthPollCommand.ts` - функция `executeAutoPollForEvent`
 
 **Функциональность**:
 - Автоматически проверяет наличие молодежного события на завтра в календаре Notion
@@ -718,9 +718,9 @@ export const getNotionClient = (): Client => {
 - Тип служения (select: Молодежное, и т.д.)
 - Тема (rich_text, в различных полях)
 
-#### Ежедневное чтение
+#### каждые 15 минуте чтение
 
-- **`getDailyScripture(date?)`** - получение ежедневного чтения
+- **`getDailyScripture(date?)`** - получение каждые 15 минутго чтения
 
 **База данных**: `NOTION_DAILY_DISTRIBUTION_DATABASE`
 
@@ -1053,7 +1053,7 @@ logInfo("Processing message", {
 - **`NOTION_TOKEN`** (обязательно) - токен интеграции Notion
 - **`NOTION_PRAYER_DATABASE`** (обязательно) - ID базы данных молитвенных нужд
 - **`NOTION_GENERAL_CALENDAR_DATABASE`** (обязательно) - ID базы данных календаря
-- **`NOTION_DAILY_DISTRIBUTION_DATABASE`** (обязательно) - ID базы данных ежедневного чтения
+- **`NOTION_DAILY_DISTRIBUTION_DATABASE`** (обязательно) - ID базы данных каждые 15 минутго чтения
 - **`NOTION_WEEKLY_PRAYER_DATABASE`** (обязательно) - ID базы данных недельных молитвенных записей
 
 #### Application Configuration
@@ -1128,24 +1128,24 @@ logInfo("Processing message", {
 
 ---
 
-### youth-poll-scheduler
+### poll-scheduler
 
-**Файл**: `netlify/functions/youth-poll-scheduler.ts`
+**Файл**: `netlify/functions/poll-scheduler.ts`
 
 **Назначение**: Автоматическое создание опроса для молодежного служения.
 
 **Триггер**: Scheduled функция (cron)
 
-**Расписание**: Ежедневно в 18:00 UTC (21:00 по московскому времени)
+**Расписание**: каждые 15 минут в */15 мин (каждые 15 минут по московскому времени)
 
 **Конфигурация в `netlify.toml`**:
 ```toml
-[functions."youth-poll-scheduler"]
-  schedule = "0 18 * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 ```
 
 **Функциональность**:
-1. Вызов `executeYouthPollScheduled()`
+1. Вызов `executeAutoPollForEvent()`
 2. Проверка события на завтра
 3. Создание опроса в группе
 4. Логирование результата
@@ -1642,8 +1642,8 @@ yarn webhook:delete
 [functions]
   node_bundler = "esbuild"
 
-[functions."youth-poll-scheduler"]
-  schedule = "0 18 * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 ```
 
 ---
@@ -1724,7 +1724,7 @@ ngrok http 8888
 - `/request_state_sunday` - воскресное служение
 - `/weekly_schedule` - недельное расписание
 - `/prayer_week` - молитвы на неделю
-- Опросы для молодежи создаются автоматически (youth-poll-scheduler)
+- Опросы для молодежи создаются автоматически (poll-scheduler)
 
 ### Debug режим
 
@@ -1753,7 +1753,7 @@ NODE_ENV=development
 yarn netlify:dev
 
 # В другом терминале - вызов функции
-curl -X POST http://localhost:8888/.netlify/functions/youth-poll-scheduler
+curl -X POST http://localhost:8888/.netlify/functions/poll-scheduler
 ```
 
 #### Проверка логов
@@ -1790,7 +1790,7 @@ curl -X POST http://localhost:8888/.netlify/functions/youth-poll-scheduler
 ```mermaid
 flowchart TD
     A[Telegram Bot API] -->|Webhook| B[telegram-webhook.ts]
-    C[Scheduler] -->|Cron 18:00 UTC| D[youth-poll-scheduler.ts]
+    C[Scheduler] -->|Cron */15 мин| D[poll-scheduler.ts]
     
     B --> E[messageHandler.ts]
     D --> F[youthPollCommand.ts]
@@ -1888,7 +1888,7 @@ sequenceDiagram
 graph LR
     subgraph Entry["Entry Points"]
         WH[telegram-webhook.ts]
-        SCH[youth-poll-scheduler.ts]
+        SCH[poll-scheduler.ts]
     end
     
     subgraph Handlers["Handlers"]
@@ -2023,4 +2023,5 @@ graph LR
 ---
 
 *Последнее обновление: 2025*
+
 

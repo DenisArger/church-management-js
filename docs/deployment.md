@@ -126,12 +126,13 @@ yarn webhook:delete
 [functions]
   node_bundler = "esbuild"
 
-[functions."youth-poll-scheduler"]
-  schedule = "0 18 * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 ```
 
 ---
 
 [← Назад к содержанию](README.md)
+
 
 

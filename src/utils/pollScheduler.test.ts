@@ -32,36 +32,45 @@ describe("pollScheduler", () => {
       const now = new Date(2025, 0, 19, 18, 0, 0, 0); // 25h before
       expect(shouldSendPoll(event, now)).toBe(false);
     });
-    it("returns true within 2 min after send time", () => {
+    it("returns true within 15 min after send time", () => {
       const event = new Date(2025, 0, 20, 19, 0, 0, 0);
       const sendTime = new Date(2025, 0, 19, 19, 0, 0, 0);
-      const now = new Date(sendTime.getTime() + 60 * 1000);
+      const now = new Date(sendTime.getTime() + 10 * 60 * 1000);
       expect(shouldSendPoll(event, now)).toBe(true);
     });
-    it("returns false after 2 min past send time", () => {
+    it("returns false after 15 min past send time", () => {
       const event = new Date(2025, 0, 20, 19, 0, 0, 0);
       const sendTime = new Date(2025, 0, 19, 19, 0, 0, 0);
-      const now = new Date(sendTime.getTime() + 3 * 60 * 1000);
+      const now = new Date(sendTime.getTime() + 16 * 60 * 1000);
       expect(shouldSendPoll(event, now)).toBe(false);
     });
   });
 
   describe("shouldSendNotification", () => {
-    it("returns true within 10 min after 3h before event", () => {
-      const event = new Date(2025, 0, 20, 19, 0, 0, 0);
-      const threeHBefore = new Date(2025, 0, 20, 16, 0, 0, 0);
-      const now = new Date(threeHBefore.getTime() + 5 * 60 * 1000);
+    it("returns true within 15 min after notification time", () => {
+      // Notification time is 27h before event (3h before poll send)
+      // Event at 19:00 Moscow -> 16:00 UTC
+      const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));
+      const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
+      const now = new Date(notifyTime.getTime() + 10 * 60 * 1000);
       expect(shouldSendNotification(event, now)).toBe(true);
     });
-    it("returns false before 3h before event", () => {
-      const event = new Date(2025, 0, 20, 19, 0, 0, 0);
-      const now = new Date(2025, 0, 20, 15, 0, 0, 0);
+    it("returns true within 15 min before notification time", () => {
+      const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));
+      const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
+      const now = new Date(notifyTime.getTime() - 10 * 60 * 1000);
+      expect(shouldSendNotification(event, now)).toBe(true);
+    });
+    it("returns false after 15 min past notification time", () => {
+      const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));
+      const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
+      const now = new Date(notifyTime.getTime() + 16 * 60 * 1000);
       expect(shouldSendNotification(event, now)).toBe(false);
     });
-    it("returns false after 10 min past 3h before", () => {
-      const event = new Date(2025, 0, 20, 19, 0, 0, 0);
-      const threeHBefore = new Date(2025, 0, 20, 16, 0, 0, 0);
-      const now = new Date(threeHBefore.getTime() + 15 * 60 * 1000);
+    it("returns false more than 15 min before notification time", () => {
+      const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));
+      const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
+      const now = new Date(notifyTime.getTime() - 16 * 60 * 1000);
       expect(shouldSendNotification(event, now)).toBe(false);
     });
   });

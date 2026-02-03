@@ -2,19 +2,13 @@
 
 /**
  * Test script for youth poll functionality
- * Tests both manual command execution and scheduled execution
+ * Tests manual command execution and Notion lookup
  */
 
 const { config } = require("dotenv");
 const requireDist = require("./require-dist");
-const {
-  executeYouthPollCommand,
-  executeYouthPollScheduled,
-} = requireDist("commands/youthPollCommand");
-const {
-  getYouthEventForTomorrow,
-} = requireDist("services/notionService");
-const { logInfo, logError } = requireDist("utils/logger");
+const { executeYouthPollCommand } = requireDist("commands/youthPollCommand");
+const { getYouthEventForTomorrow } = requireDist("services/notionService");
 
 // Load environment variables
 config();
@@ -49,31 +43,6 @@ async function testManualYouthPoll() {
 }
 
 /**
- * Test scheduled youth poll execution
- */
-async function testScheduledYouthPoll() {
-  console.log("🧪 Testing scheduled youth poll execution...");
-
-  try {
-    const result = await executeYouthPollScheduled();
-
-    if (result.success) {
-      console.log("✅ Scheduled youth poll test PASSED");
-      console.log("📝 Message:", result.message);
-      if (result.data) {
-        console.log("📊 Data:", JSON.stringify(result.data, null, 2));
-      }
-    } else {
-      console.log("❌ Scheduled youth poll test FAILED");
-      console.log("🚨 Error:", result.error);
-    }
-  } catch (error) {
-    console.log("💥 Scheduled youth poll test ERROR");
-    console.error("🚨 Error:", error);
-  }
-}
-
-/**
  * Test Notion service directly
  */
 async function testNotionService() {
@@ -84,7 +53,7 @@ async function testNotionService() {
 
     if (youthEvent) {
       console.log("✅ Youth event found for tomorrow");
-      console.log("📅 Event details:");
+      console.log("📝 Event details:");
       console.log("   ID:", youthEvent.id);
       console.log("   Title:", youthEvent.title);
       console.log("   Date:", youthEvent.date.toISOString());
@@ -165,10 +134,6 @@ async function runTests() {
   await testManualYouthPoll();
   console.log();
 
-  // Test scheduled execution
-  await testScheduledYouthPoll();
-  console.log();
-
   console.log("=".repeat(50));
   console.log("🏁 Youth Poll Tests Completed");
 }
@@ -186,9 +151,6 @@ if (args.length === 0) {
     case "manual":
       testManualYouthPoll().catch(console.error);
       break;
-    case "scheduled":
-      testScheduledYouthPoll().catch(console.error);
-      break;
     case "notion":
       testNotionService().catch(console.error);
       break;
@@ -204,7 +166,6 @@ if (args.length === 0) {
       console.log("Commands:");
       console.log("  (no args)  - Run all tests");
       console.log("  manual     - Test manual youth poll command");
-      console.log("  scheduled  - Test scheduled youth poll execution");
       console.log("  notion     - Test Notion service for youth events");
       console.log("  env        - Test environment configuration");
       console.log("  help       - Show this help");

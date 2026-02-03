@@ -4,7 +4,7 @@
 
 Система автоматического создания опросов для молодежного служения работает следующим образом:
 
-1. **Netlify Scheduled Function** (`youth-poll-scheduler`) запускается ежедневно в 18:00 UTC (21:00 по Москве)
+1. **Netlify Scheduled Function** (`poll-scheduler`) запускается каждые 15 минут в каждые 15 минут
 2. Функция проверяет наличие молодежного события на завтра в базе данных Notion
 3. Если событие найдено, создается опрос в Telegram группе молодежи
 4. Если события нет, функция завершается без создания опроса
@@ -43,7 +43,7 @@ node test-youth-poll.js env         # Проверка переменных ок
 
 ### 2. Тестирование Netlify функций
 
-**Файл:** `test-youth-poll-scheduler.sh`
+**Файл:** `test-auto-poll-scheduler.sh`
 
 Этот скрипт тестирует Netlify функции как локально, так и в продакшене.
 
@@ -51,19 +51,19 @@ node test-youth-poll.js env         # Проверка переменных ок
 
 ```bash
 # Проверить статус Netlify dev
-bash test-youth-poll-scheduler.sh check-dev
+bash test-auto-poll-scheduler.sh check-dev
 
 # Тест локальной функции
-bash test-youth-poll-scheduler.sh local
+bash test-auto-poll-scheduler.sh local
 
 # Тест развернутой функции
-bash test-youth-poll-scheduler.sh deployed https://f5fa2ef2--church-telegram-bot.netlify.live
+bash test-auto-poll-scheduler.sh deployed https://f5fa2ef2--church-telegram-bot.netlify.live
 
 # Симуляция cron триггера
-bash test-youth-poll-scheduler.sh cron https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/youth-poll-scheduler
+bash test-auto-poll-scheduler.sh cron https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/poll-scheduler
 
 # Все тесты сразу
-bash test-youth-poll-scheduler.sh all https://f5fa2ef2--church-telegram-bot.netlify.live
+bash test-auto-poll-scheduler.sh all https://f5fa2ef2--church-telegram-bot.netlify.live
 ```
 
 #### Что тестирует:
@@ -83,13 +83,13 @@ bash test-youth-poll-scheduler.sh all https://f5fa2ef2--church-telegram-bot.netl
 
 ```bash
 # Одноразовый триггер
-bash cron-simulation.sh trigger http://localhost:8889/.netlify/functions/youth-poll-scheduler
+bash cron-simulation.sh trigger http://localhost:8889/.netlify/functions/poll-scheduler
 
 # Запуск периодического тестирования (каждые 30 минут)
-bash cron-simulation.sh start http://localhost:8889/.netlify/functions/youth-poll-scheduler 1800
+bash cron-simulation.sh start http://localhost:8889/.netlify/functions/poll-scheduler 1800
 
-# Запуск периодического тестирования (каждый час)
-bash cron-simulation.sh start https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/youth-poll-scheduler 3600
+# Запуск периодического тестирования (каждые 15 минут)
+bash cron-simulation.sh start https://f5fa2ef2--church-telegram-bot.netlify.live/.netlify/functions/poll-scheduler 3600
 
 # Остановка симуляции
 bash cron-simulation.sh stop
@@ -185,21 +185,21 @@ node test-youth-poll.js notion
 
 ```bash
 # Тест Netlify функции локально
-bash test-youth-poll-scheduler.sh local
+bash test-auto-poll-scheduler.sh local
 ```
 
 ### Шаг 4: Тест развернутой функции
 
 ```bash
 # Тест в продакшене
-bash test-youth-poll-scheduler.sh deployed https://f5fa2ef2--church-telegram-bot.netlify.live
+bash test-auto-poll-scheduler.sh deployed https://f5fa2ef2--church-telegram-bot.netlify.live
 ```
 
 ### Шаг 5: Симуляция расписания
 
 ```bash
 # Запустите симуляцию cron job
-bash cron-simulation.sh start http://localhost:8889/.netlify/functions/youth-poll-scheduler 300
+bash cron-simulation.sh start http://localhost:8889/.netlify/functions/poll-scheduler 300
 
 # Проверьте логи
 bash cron-simulation.sh logs 50
@@ -212,8 +212,8 @@ bash cron-simulation.sh logs 50
 Логи отображаются в терминале где запущен `netlify dev --live`:
 
 ```
-[netlify] Function youth-poll-scheduler executed
-[netlify] Response: {"success": true, "message": "Youth poll scheduler completed successfully"}
+[netlify] Function poll-scheduler executed
+[netlify] Response: {"success": true, "message": "Poll scheduler completed successfully"}
 ```
 
 ### Логи симуляции
@@ -221,9 +221,9 @@ bash cron-simulation.sh logs 50
 Логи сохраняются в `cron-simulation.log`:
 
 ```
-[2024-01-15 21:00:00] Triggering youth poll scheduler at http://localhost:8889/.netlify/functions/youth-poll-scheduler
-[2024-01-15 21:00:01] Response: HTTP 200
-[2024-01-15 21:00:01] SUCCESS: Youth poll scheduler executed successfully
+[2024-01-15 каждые 15 минут:00] Triggering Poll scheduler at http://localhost:8889/.netlify/functions/poll-scheduler
+[2024-01-15 каждые 15 минут:01] Response: HTTP 200
+[2024-01-15 каждые 15 минут:01] SUCCESS: Poll scheduler executed successfully
 ```
 
 ### Проверка статуса
@@ -285,7 +285,7 @@ netlify dev --live
 Можно добавить автоматические тесты в GitHub Actions:
 
 ```yaml
-name: Test Youth Poll Scheduler
+name: Test Poll scheduler
 on: [push, pull_request]
 
 jobs:
@@ -308,3 +308,4 @@ jobs:
 ## Заключение
 
 Используйте эти инструменты для комплексного тестирования системы создания опросов на молодежное служение. Начните с ручного тестирования, затем переходите к автоматизированным тестам и симуляции расписания.
+

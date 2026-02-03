@@ -25,34 +25,31 @@
 - `Access-Control-Allow-Headers: Content-Type`
 - `Access-Control-Allow-Methods: POST, OPTIONS`
 
-## youth-poll-scheduler
+## poll-scheduler
 
-**Файл**: `netlify/functions/youth-poll-scheduler.ts`
+**Файл**: `netlify/functions/poll-scheduler.ts`
 
-**Назначение**: Автоматическое создание опроса для молодежного служения.
+**Назначение**: Автоматическое создание опросов и уведомлений для событий типа «Молодежное» и «МОСТ».
 
 **Триггер**: Scheduled функция (cron)
 
-**Расписание**: Ежедневно в 18:00 UTC (21:00 по московскому времени)
+**Расписание**: каждые 15 минут
 
 **Конфигурация в `netlify.toml`**:
 ```toml
-[functions."youth-poll-scheduler"]
-  schedule = "0 18 * * *"
+[functions."poll-scheduler"]
+  schedule = "*/15 * * * *"
 ```
 
 **Функциональность**:
-1. Вызов `executeYouthPollScheduled()`
-2. Проверка события на завтра
-3. Создание опроса в группе
-4. Логирование результата
-
-**Ответы**:
-- `200 OK` - успешное выполнение
-- `500 Internal Server Error` - ошибка
+1. Получение событий на ближайшие 48 часов
+2. Отправка опроса за 24 часа до события
+3. Отправка уведомления администратору за 3 часа до события
+4. Логирование результатов
 
 ---
 
 [← Назад к содержанию](README.md)
+
 
 

@@ -1,11 +1,11 @@
-# Диаграммы
+﻿# Диаграммы
 
 ## Архитектура системы
 
 ```mermaid
 flowchart TD
     A[Telegram Bot API] -->|Webhook| B[telegram-webhook.ts]
-    C[Scheduler] -->|Cron 18:00 UTC| D[youth-poll-scheduler.ts]
+    C[Scheduler] -->|Cron */15 min| D[poll-scheduler.ts]
     
     B --> E[messageHandler.ts]
     D --> F[youthPollCommand.ts]
@@ -95,7 +95,7 @@ sequenceDiagram
 graph LR
     subgraph Entry["Entry Points"]
         WH[telegram-webhook.ts]
-        SCH[youth-poll-scheduler.ts]
+        SCH[poll-scheduler.ts]
     end
     
     subgraph Handlers["Handlers"]
@@ -207,6 +207,7 @@ graph LR
 ---
 
 [← Назад к содержанию](README.md)
+
 
 
 
