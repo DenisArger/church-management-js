@@ -2,6 +2,7 @@ import {
   calculatePollSendTime,
   shouldSendPoll,
   shouldSendNotification,
+  shouldSendYouthReportReminder,
   hasTheme,
   isEventMissing,
   hasTime,
@@ -72,6 +73,23 @@ describe("pollScheduler", () => {
       const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
       const now = new Date(notifyTime.getTime() - 16 * 60 * 1000);
       expect(shouldSendNotification(event, now)).toBe(false);
+    });
+  });
+
+  describe("shouldSendYouthReportReminder", () => {
+    it("returns true on last day at 11:00 Moscow within 15 minutes", () => {
+      // Moscow is UTC+3, so 11:05 Moscow = 08:05 UTC
+      const now = new Date(Date.UTC(2025, 0, 31, 8, 5, 0, 0));
+      expect(shouldSendYouthReportReminder(now)).toBe(true);
+    });
+    it("returns false on non-last day", () => {
+      const now = new Date(Date.UTC(2025, 0, 30, 8, 5, 0, 0));
+      expect(shouldSendYouthReportReminder(now)).toBe(false);
+    });
+    it("returns false outside the 15-minute window", () => {
+      // 11:20 Moscow = 08:20 UTC
+      const now = new Date(Date.UTC(2025, 0, 31, 8, 20, 0, 0));
+      expect(shouldSendYouthReportReminder(now)).toBe(false);
     });
   });
 

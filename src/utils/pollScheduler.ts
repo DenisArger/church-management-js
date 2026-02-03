@@ -62,6 +62,31 @@ const isWithinMoscowWindow = (
   return diff >= 0 && diff < windowMs;
 };
 
+const isWithinMoscowTimeWindow = (
+  date: Date,
+  target: { hour: number; minute: number },
+  windowMs: number = FIFTEEN_MINUTES_MS
+): boolean => {
+  const parts = getMoscowDateParts(date);
+  const targetMs = Date.UTC(
+    parts.year,
+    parts.month,
+    parts.day,
+    target.hour,
+    target.minute,
+    0,
+    0
+  );
+  const diff = parts.moscowMs - targetMs;
+  return diff >= 0 && diff < windowMs;
+};
+
+const isLastDayOfMoscowMonth = (date: Date): boolean => {
+  const parts = getMoscowDateParts(date);
+  const lastDay = new Date(Date.UTC(parts.year, parts.month + 1, 0)).getUTCDate();
+  return parts.day === lastDay;
+};
+
 /**
  * Calculate poll send time: exactly 24 hours before event at the same time
  */
@@ -190,6 +215,23 @@ export const shouldSendAdminWeeklySchedule = (
 ): boolean => {
   if (isWithinMoscowWindow(currentTime, { weekday: 0, hour: 18, minute: 0 })) {
     logInfo("Should send admin weekly schedule now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Check if monthly youth report reminder should be sent to administrators.
+ * Target time: last day of month at 11:00 (Europe/Moscow), 15-minute window after target.
+ */
+export const shouldSendYouthReportReminder = (
+  currentTime: Date = new Date()
+): boolean => {
+  if (!isLastDayOfMoscowMonth(currentTime)) return false;
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 0 })) {
+    logInfo("Should send youth report reminder now", {
       currentTime: currentTime.toISOString(),
     });
     return true;
