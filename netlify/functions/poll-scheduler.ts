@@ -3,13 +3,20 @@ import {
   executeAutoPollForEvent,
   sendPollNotification,
 } from "../../src/commands/autoPollCommand";
+import {
+  sendAdminWeeklySchedule,
+  sendWeeklyScheduleToChat,
+} from "../../src/commands/weeklyScheduleCommand";
+import { getTelegramConfig } from "../../src/config/environment";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import {
+  shouldSendAdminWeeklySchedule,
   shouldSendNotification,
   shouldSendPoll,
+  shouldSendWeeklySchedule,
 } from "../../src/utils/pollScheduler";
 import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
-import { logInfo, logError } from "../../src/utils/logger";
+import { logInfo, logWarn, logError } from "../../src/utils/logger";
 
 /**
  * Netlify Scheduled Function for sending polls and notifications
@@ -19,6 +26,18 @@ import { logInfo, logError } from "../../src/utils/logger";
  * [functions."poll-scheduler"]
  *   schedule = "every 15 minutes"
  */
+const getSchedulerNow = (): Date => {
+  const raw = String(process.env.SCHEDULER_NOW_ISO ?? "").trim();
+  if (!raw) return new Date();
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) {
+    logWarn("Invalid SCHEDULER_NOW_ISO, using real time", { raw });
+    return new Date();
+  }
+  logInfo("Using overridden scheduler time", { now: parsed.toISOString() });
+  return parsed;
+};
+
 export const handler: Handler = async (event: HandlerEvent) => {
   await ensureAppConfigLoaded();
   logInfo("Poll scheduler triggered", {
@@ -28,7 +47,57 @@ export const handler: Handler = async (event: HandlerEvent) => {
   });
 
   try {
-    const now = new Date();
+    const now = getSchedulerNow();
+
+    const forceDebug = String(process.env.SCHEDULER_FORCE_DEBUG ?? "").trim() === "true";
+
+    // Weekly schedule sends (Moscow time)
+    if (shouldSendWeeklySchedule(now)) {
+      const telegramConfig = getTelegramConfig();
+      const rawMainGroupId = telegramConfig.mainGroupId;
+      const rawMainTopicId = telegramConfig.announcementsTopicId;
+      const mainGroupId =
+        rawMainGroupId && rawMainGroupId.trim().length > 0
+          ? parseInt(rawMainGroupId.trim(), 10)
+          : NaN;
+      const mainTopicId =
+        rawMainTopicId && rawMainTopicId.trim().length > 0
+          ? parseInt(rawMainTopicId.trim(), 10)
+          : NaN;
+
+      if (!isNaN(mainGroupId)) {
+        const result = await sendWeeklyScheduleToChat(mainGroupId, "current", {
+          suppressDebugMessage: false,
+          forceDebug,
+          messageThreadId: !isNaN(mainTopicId) ? mainTopicId : undefined,
+          context: { source: "poll-scheduler" },
+        });
+
+        if (!result.success) {
+          logError("Failed to send weekly schedule", {
+            error: result.error,
+            chatId: mainGroupId,
+          });
+        }
+      } else {
+        logWarn("Weekly schedule skipped: TELEGRAM_MAIN_GROUP_ID not set");
+      }
+    }
+
+    if (shouldSendAdminWeeklySchedule(now)) {
+      const result = await sendAdminWeeklySchedule("next", {
+        suppressDebugMessage: false,
+        forceDebug,
+        context: { source: "poll-scheduler" },
+      });
+
+      if (!result.success) {
+        logError("Failed to send admin weekly schedule", {
+          error: result.error,
+        });
+      }
+    }
+
     const endDate = new Date(now);
     endDate.setHours(endDate.getHours() + 48);
 

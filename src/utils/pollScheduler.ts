@@ -1,6 +1,7 @@
 import { logInfo, logWarn } from "./logger";
 
 const MOSCOW_TIMEZONE = "Europe/Moscow";
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 
 const toMoscowTimestamp = (date: Date): number => {
   const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -26,6 +27,39 @@ const toMoscowTimestamp = (date: Date): number => {
   const second = pick("second");
 
   return Date.UTC(year, month - 1, day, hour, minute, second, 0);
+};
+
+const getMoscowDateParts = (date: Date) => {
+  const moscowMs = toMoscowTimestamp(date);
+  const moscowDate = new Date(moscowMs);
+  return {
+    moscowMs,
+    year: moscowDate.getUTCFullYear(),
+    month: moscowDate.getUTCMonth(),
+    day: moscowDate.getUTCDate(),
+    weekday: moscowDate.getUTCDay(), // 0 = Sunday ... 6 = Saturday (Moscow local)
+  };
+};
+
+const isWithinMoscowWindow = (
+  date: Date,
+  target: { weekday: number; hour: number; minute: number },
+  windowMs: number = FIFTEEN_MINUTES_MS
+): boolean => {
+  const parts = getMoscowDateParts(date);
+  if (parts.weekday !== target.weekday) return false;
+
+  const targetMs = Date.UTC(
+    parts.year,
+    parts.month,
+    parts.day,
+    target.hour,
+    target.minute,
+    0,
+    0
+  );
+  const diff = parts.moscowMs - targetMs;
+  return diff >= 0 && diff < windowMs;
 };
 
 /**
@@ -68,10 +102,9 @@ export const shouldSendPoll = (
   
   // Check if current time is at or past the send time, but not more than 15 minutes past
   const timeDiff = currentTime.getTime() - sendTime.getTime();
-  const fifteenMinutesInMs = 15 * 60 * 1000; // 15 minutes window
   
   // Allow sending if we're within 15 minutes after the calculated send time
-  if (timeDiff >= 0 && timeDiff < fifteenMinutesInMs) {
+  if (timeDiff >= 0 && timeDiff < FIFTEEN_MINUTES_MS) {
     logInfo("Should send poll now", {
       eventDate: eventDate.toISOString(),
       sendTime: sendTime.toISOString(),
@@ -117,9 +150,7 @@ export const shouldSendNotification = (
 
   // Allow a 15-minute window on both sides of notification time
   const timeDiff = nowMoscowMs - notificationTimeMs;
-  const fifteenMinutesInMs = 15 * 60 * 1000; // 15 minutes window
-
-  if (Math.abs(timeDiff) < fifteenMinutesInMs) {
+  if (Math.abs(timeDiff) < FIFTEEN_MINUTES_MS) {
     logInfo("Should send notification now", {
       eventDate: eventDate.toISOString(),
       currentTime: currentTime.toISOString(),
@@ -131,6 +162,38 @@ export const shouldSendNotification = (
     return true;
   }
 
+  return false;
+};
+
+/**
+ * Check if weekly schedule should be sent to the group.
+ * Target time: Monday 09:00 (Europe/Moscow), 15-minute window after target.
+ */
+export const shouldSendWeeklySchedule = (
+  currentTime: Date = new Date()
+): boolean => {
+  if (isWithinMoscowWindow(currentTime, { weekday: 1, hour: 9, minute: 0 })) {
+    logInfo("Should send weekly schedule now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Check if preliminary weekly schedule should be sent to administrator.
+ * Target time: Sunday 18:00 (Europe/Moscow), 15-minute window after target.
+ */
+export const shouldSendAdminWeeklySchedule = (
+  currentTime: Date = new Date()
+): boolean => {
+  if (isWithinMoscowWindow(currentTime, { weekday: 0, hour: 18, minute: 0 })) {
+    logInfo("Should send admin weekly schedule now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
   return false;
 };
 

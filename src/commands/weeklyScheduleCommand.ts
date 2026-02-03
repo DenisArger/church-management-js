@@ -1,8 +1,13 @@
 import { CommandResult } from "../types";
-import { sendMessage } from "../services/telegramService";
+import {
+  getTelegramConfigForMode,
+  sendMessage,
+  sendMessageToUser,
+  sendMessageWithBot,
+} from "../services/telegramService";
 import { getWeeklySchedule } from "../services/calendarService";
 import { formatWeeklyScheduleMessage } from "../utils/weeklyScheduleFormatter";
-import { getAppConfig } from "../config/environment";
+import { getAppConfig, getTelegramConfig } from "../config/environment";
 import { logInfo, logWarn, logError } from "../utils/logger";
 
 /**
@@ -30,6 +35,151 @@ export const showWeekSelection = async (
   );
 };
 
+type WeeklyScheduleSendOptions = {
+  suppressDebugMessage?: boolean;
+  forceDebug?: boolean;
+  messageThreadId?: number;
+  context?: Record<string, unknown>;
+};
+
+export const sendWeeklyScheduleToChat = async (
+  chatId: number,
+  weekType: "current" | "next",
+  options?: WeeklyScheduleSendOptions
+): Promise<CommandResult> => {
+  const appConfig = getAppConfig();
+  const isDebug = options?.forceDebug ? true : appConfig.debug;
+
+  if (isDebug) {
+    const debugConfig = getTelegramConfigForMode(true);
+    if (!debugConfig.chatId) {
+      return { success: false, error: "Debug chat ID not configured" };
+    }
+
+    logInfo("DEBUG mode is active, sending weekly schedule to debug chat", {
+      targetChatId: debugConfig.chatId,
+      weekType,
+      ...(options?.context || {}),
+    });
+
+    const scheduleInfo = await getWeeklySchedule(weekType);
+    const message = formatWeeklyScheduleMessage(scheduleInfo);
+    const debugMessage = `🧪 <b>DEBUG</b>\n\n${message}`;
+    const debugOptions: Record<string, unknown> = { parse_mode: "HTML" };
+    if (debugConfig.topicId) {
+      debugOptions.message_thread_id = debugConfig.topicId;
+    }
+
+    return await sendMessageWithBot(
+      debugConfig.bot,
+      debugConfig.chatId,
+      debugMessage,
+      debugOptions
+    );
+  }
+
+  const scheduleInfo = await getWeeklySchedule(weekType);
+  const message = formatWeeklyScheduleMessage(scheduleInfo);
+  const messageOptions: Record<string, unknown> = { parse_mode: "HTML" };
+  if (options?.messageThreadId) {
+    messageOptions.message_thread_id = options.messageThreadId;
+  }
+  const result = await sendMessage(chatId, message, messageOptions);
+
+  if (result.success) {
+    logInfo("Weekly schedule sent successfully", {
+      chatId,
+      weekType,
+      servicesCount: scheduleInfo?.services.length || 0,
+      ...(options?.context || {}),
+    });
+  } else {
+    logWarn("Failed to send weekly schedule", {
+      chatId,
+      weekType,
+      error: result.error,
+      ...(options?.context || {}),
+    });
+  }
+
+  return result;
+};
+
+export const sendAdminWeeklySchedule = async (
+  weekType: "current" | "next" = "next",
+  options?: WeeklyScheduleSendOptions
+): Promise<CommandResult> => {
+  const appConfig = getAppConfig();
+  const telegramConfig = getTelegramConfig();
+  const adminUsers = telegramConfig.allowedUsers;
+
+  if (adminUsers.length === 0) {
+    logWarn("No allowed users configured for admin weekly schedule", {
+      weekType,
+      ...(options?.context || {}),
+    });
+    return { success: false, error: "No administrator configured" };
+  }
+
+  const adminUserId = adminUsers[0];
+
+  const isDebug = options?.forceDebug ? true : appConfig.debug;
+
+  if (isDebug) {
+    const debugConfig = getTelegramConfigForMode(true);
+    if (!debugConfig.chatId) {
+      return { success: false, error: "Debug chat ID not configured" };
+    }
+
+    logInfo("DEBUG mode is active, sending admin weekly schedule to debug chat", {
+      targetChatId: debugConfig.chatId,
+      weekType,
+      ...(options?.context || {}),
+    });
+
+    const scheduleInfo = await getWeeklySchedule(weekType);
+    const message = formatWeeklyScheduleMessage(scheduleInfo);
+    const adminMessage = `🧪 <b>DEBUG</b>\n\n📝 <b>Предварительное расписание</b>\n\n${message}`;
+    const debugOptions: Record<string, unknown> = { parse_mode: "HTML" };
+    if (debugConfig.topicId) {
+      debugOptions.message_thread_id = debugConfig.topicId;
+    }
+
+    return await sendMessageWithBot(
+      debugConfig.bot,
+      debugConfig.chatId,
+      adminMessage,
+      debugOptions
+    );
+  }
+
+  const scheduleInfo = await getWeeklySchedule(weekType);
+  const message = formatWeeklyScheduleMessage(scheduleInfo);
+  const adminMessage = `📝 <b>Предварительное расписание</b>\n\n${message}`;
+
+  const result = await sendMessageToUser(adminUserId, adminMessage, {
+    parse_mode: "HTML",
+  });
+
+  if (result.success) {
+    logInfo("Admin weekly schedule sent successfully", {
+      adminUserId,
+      weekType,
+      servicesCount: scheduleInfo?.services.length || 0,
+      ...(options?.context || {}),
+    });
+  } else {
+    logWarn("Failed to send admin weekly schedule", {
+      adminUserId,
+      weekType,
+      error: result.error,
+      ...(options?.context || {}),
+    });
+  }
+
+  return result;
+};
+
 /**
  * Execute /weekly_schedule command
  * Gets and sends weekly schedule of services that need mailing
@@ -43,46 +193,14 @@ export const executeWeeklyScheduleCommand = async (
   logInfo("Executing weekly schedule command", { userId, chatId, weekType });
 
   try {
-    const appConfig = getAppConfig();
-
-    // Check if debug mode is active
-    if (appConfig.debug) {
-      logInfo("DEBUG mode is active, sending debug message");
-      return await sendMessage(
-        chatId,
-        "DEBUG-режим активен, рассылка недельного расписания не будет отправлена"
-      );
-    }
-
     // If weekType is not provided, show selection menu
     if (!weekType) {
       return await showWeekSelection(chatId);
     }
 
-    // Get weekly schedule information for selected week
-    const scheduleInfo = await getWeeklySchedule(weekType);
-
-    // Format and send the message
-    const message = formatWeeklyScheduleMessage(scheduleInfo);
-    const result = await sendMessage(chatId, message, { parse_mode: "HTML" });
-
-    if (result.success) {
-      logInfo("Weekly schedule sent successfully", {
-        userId,
-        chatId,
-        weekType,
-        servicesCount: scheduleInfo?.services.length || 0,
-      });
-    } else {
-      logWarn("Failed to send weekly schedule", {
-        userId,
-        chatId,
-        weekType,
-        error: result.error,
-      });
-    }
-
-    return result;
+    return await sendWeeklyScheduleToChat(chatId, weekType, {
+      context: { userId },
+    });
   } catch (error) {
     logError("Error in weekly schedule command", error);
     return {

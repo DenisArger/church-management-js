@@ -78,11 +78,16 @@ export const handleMessage = async (
   const userId = message.from.id;
   const text = message.text;
   const chatType = message.chat.type;
+  const messageThreadId = (message as any).message_thread_id;
+  const forwardFromChat = (message as any).forward_from_chat;
 
   logInfo("Processing message", {
     userId,
     chatId,
     chatType,
+    messageThreadId: messageThreadId ?? null,
+    forwardFromChatId: forwardFromChat?.id ?? null,
+    forwardFromChatTitle: forwardFromChat?.title ?? null,
     text: text?.substring(0, 100),
     command: text?.trim().split(" ")[0] ?? null,
   });

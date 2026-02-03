@@ -83,6 +83,30 @@ export const sendMessage = async (
   }
 };
 
+export const sendMessageWithBot = async (
+  bot: TelegramBot,
+  chatId: number,
+  text: string,
+  options?: Record<string, unknown>
+): Promise<CommandResult> => {
+  try {
+    const message = await bot.sendMessage(chatId, text, options);
+    logInfo(`Message sent to ${chatId}`, { messageId: message.message_id });
+
+    return {
+      success: true,
+      message: "Message sent successfully",
+      data: { messageId: message.message_id },
+    };
+  } catch (error) {
+    logError("Error sending message", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};
+
 export const sendMessageToUser = async (
   userId: number,
   text: string,

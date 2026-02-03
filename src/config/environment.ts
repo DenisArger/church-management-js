@@ -27,6 +27,9 @@ export const getTelegramConfig = () => {
   return {
     botToken: process.env.TELEGRAM_BOT_TOKEN!,
     allowedUsers,
+    mainGroupId: getAppConfigValue("TELEGRAM_MAIN_GROUP_ID"),
+    mainChannelId: getAppConfigValue("TELEGRAM_MAIN_CHANNEL_ID"),
+    announcementsTopicId: getAppConfigValue("TELEGRAM_ANNOUNCEMENTS_TOPIC_ID"),
     youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),
     debugBotToken: process.env.TELEGRAM_BOT_TOKEN_DEBUG,
     debugChatId: getAppConfigValue("TELEGRAM_CHAT_ID_DEBUG"),
