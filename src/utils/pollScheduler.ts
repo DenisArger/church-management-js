@@ -144,9 +144,11 @@ export const isEventMissing = (event: { date: Date } | null): boolean => {
 /**
  * Check if event has theme
  */
-export const hasTheme = (event: { theme?: string } | null): boolean => {
+export const hasTheme = (event: { theme?: string; title?: string } | null): boolean => {
   if (!event) return false;
-  return !!event.theme && event.theme.trim().length > 0;
+  const theme = event.theme?.trim();
+  const title = event.title?.trim();
+  return !!(theme && theme.length > 0) || !!(title && title.length > 0);
 };
 
 /**

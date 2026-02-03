@@ -79,6 +79,9 @@ describe("pollScheduler", () => {
     it("returns true when theme is non-empty", () => {
       expect(hasTheme({ theme: "Тема" })).toBe(true);
     });
+    it("returns true when title is non-empty", () => {
+      expect(hasTheme({ title: "Название" })).toBe(true);
+    });
     it("returns false when theme is empty or null", () => {
       expect(hasTheme({ theme: "" })).toBe(false);
       expect(hasTheme({ theme: "  " })).toBe(false);

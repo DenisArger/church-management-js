@@ -43,6 +43,7 @@ export const sendPollNotification = async (
       message += `Пожалуйста, проверьте календарь и создайте событие, если оно должно быть.`;
     } else if (event) {
       const eventHasTheme = hasTheme(event);
+      const resolvedTheme = event.theme?.trim() || event.title?.trim() || "";
       const eventHasTime = hasTime(event);
       const issues: string[] = [];
       
@@ -55,10 +56,10 @@ export const sendPollNotification = async (
       
       if (issues.length > 0) {
         message = `⚠️ Внимание! Запланирована рассылка опроса, но у события ${issues.join(" и ")}.\n\n`;
-        message += `Событие: ${event.title}\n`;
+        message += `Тип служения: ${event.serviceType || event.title}\n`;
         message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
-        if (eventHasTheme) {
-          message += `Тема: "${event.theme}"\n`;
+        if (eventHasTheme && resolvedTheme) {
+          message += `Тема: "${resolvedTheme}"\n`;
         }
         message += `\n`;
         
@@ -71,9 +72,9 @@ export const sendPollNotification = async (
         }
       } else {
         message = `📋 Напоминание: через 3 часа будет отправлен опрос о предстоящем событии.\n\n`;
-        message += `Событие: ${event.title}\n`;
+        message += `Тип служения: ${event.serviceType || event.title}\n`;
         message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
-        message += `Тема: "${event.theme}"\n\n`;
+        message += `Тема: "${resolvedTheme}"\n\n`;
         message += `Пожалуйста, проверьте необходимость отправки опроса и наличие темы.`;
       }
     } else {
@@ -139,7 +140,7 @@ export const sendPollFailureNotification = async (
     
     // Build detailed error message
     let message = `❌ ОШИБКА: Не удалось отправить опрос\n\n`;
-    message += `Событие: ${event.title}\n`;
+    message += `Тип служения: ${event.serviceType || event.title}\n`;
     message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
     message += `ID события: ${event.id}\n\n`;
     message += `Ошибка: ${errorMessage}\n\n`;
