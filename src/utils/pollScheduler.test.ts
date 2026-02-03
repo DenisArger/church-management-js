@@ -3,6 +3,7 @@ import {
   shouldSendPoll,
   shouldSendNotification,
   shouldSendYouthReportReminder,
+  shouldSendYouthCareReminder,
   hasTheme,
   isEventMissing,
   hasTime,
@@ -90,6 +91,27 @@ describe("pollScheduler", () => {
       // 11:20 Moscow = 08:20 UTC
       const now = new Date(Date.UTC(2025, 0, 31, 8, 20, 0, 0));
       expect(shouldSendYouthReportReminder(now)).toBe(false);
+    });
+  });
+
+  describe("shouldSendYouthCareReminder", () => {
+    it("returns true on 10th at 11:00 Moscow within 15 minutes", () => {
+      // Moscow is UTC+3, so 11:05 Moscow = 08:05 UTC
+      const now = new Date(Date.UTC(2025, 0, 10, 8, 5, 0, 0));
+      expect(shouldSendYouthCareReminder(now)).toBe(true);
+    });
+    it("returns true on 20th at 11:00 Moscow within 15 minutes", () => {
+      const now = new Date(Date.UTC(2025, 0, 20, 8, 10, 0, 0));
+      expect(shouldSendYouthCareReminder(now)).toBe(true);
+    });
+    it("returns false on other days", () => {
+      const now = new Date(Date.UTC(2025, 0, 11, 8, 5, 0, 0));
+      expect(shouldSendYouthCareReminder(now)).toBe(false);
+    });
+    it("returns false outside the 15-minute window", () => {
+      // 11:20 Moscow = 08:20 UTC
+      const now = new Date(Date.UTC(2025, 0, 10, 8, 20, 0, 0));
+      expect(shouldSendYouthCareReminder(now)).toBe(false);
     });
   });
 

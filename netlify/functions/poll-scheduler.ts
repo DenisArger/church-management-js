@@ -7,6 +7,7 @@ import {
   sendAdminWeeklySchedule,
   sendWeeklyScheduleToChat,
 } from "../../src/commands/weeklyScheduleCommand";
+import { sendYouthCareReminderToAdmins } from "../../src/commands/youthCareReminderCommand";
 import { sendYouthReportReminderToAdmins } from "../../src/commands/youthReportReminderCommand";
 import { getTelegramConfig } from "../../src/config/environment";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
@@ -14,6 +15,7 @@ import {
   shouldSendAdminWeeklySchedule,
   shouldSendNotification,
   shouldSendPoll,
+  shouldSendYouthCareReminder,
   shouldSendYouthReportReminder,
   shouldSendWeeklySchedule,
 } from "../../src/utils/pollScheduler";
@@ -109,6 +111,20 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
       if (!result.success) {
         logError("Failed to send youth report reminders", {
+          error: result.error,
+        });
+      }
+    }
+
+    if (shouldSendYouthCareReminder(now)) {
+      const result = await sendYouthCareReminderToAdmins({
+        suppressDebugMessage: false,
+        forceDebug,
+        context: { source: "poll-scheduler" },
+      });
+
+      if (!result.success) {
+        logError("Failed to send youth care reminders", {
           error: result.error,
         });
       }

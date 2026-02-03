@@ -240,6 +240,24 @@ export const shouldSendYouthReportReminder = (
 };
 
 /**
+ * Check if youth prayer/communication reminder should be sent to administrators.
+ * Target time: 10th and 20th of month at 11:00 (Europe/Moscow), 15-minute window after target.
+ */
+export const shouldSendYouthCareReminder = (
+  currentTime: Date = new Date()
+): boolean => {
+  const parts = getMoscowDateParts(currentTime);
+  if (parts.day !== 10 && parts.day !== 20) return false;
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 0 })) {
+    logInfo("Should send youth care reminder now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
  * Check if event is missing from calendar (for notification purposes)
  */
 export const isEventMissing = (event: { date: Date } | null): boolean => {
