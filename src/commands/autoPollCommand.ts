@@ -1,4 +1,4 @@
-import { CommandResult, CalendarItem } from "../types";
+﻿import { CommandResult, CalendarItem } from "../types";
 import {
   sendPoll,
   getTelegramConfigForMode,
@@ -12,6 +12,7 @@ import {
   hasTheme,
   hasTime,
 } from "../utils/pollScheduler";
+import { formatDateTimeMoscow } from "../utils/dateHelper";
 
 /**
  * Send poll notification to administrator
@@ -39,7 +40,7 @@ export const sendPollNotification = async (
     
     if (isEventMissing(event)) {
       message = `⚠️ Внимание! Запланирована рассылка опроса, но событие отсутствует в календаре.\n\n`;
-      message += `Дата события: ${eventDate.toLocaleDateString("ru-RU")} ${eventDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n\n`;
+      message += `Дата события: ${formatDateTimeMoscow(eventDate)}\n\n`;
       message += `Пожалуйста, проверьте календарь и создайте событие, если оно должно быть.`;
     } else if (event) {
       const eventHasTheme = hasTheme(event);
@@ -57,7 +58,7 @@ export const sendPollNotification = async (
       if (issues.length > 0) {
         message = `⚠️ Внимание! Запланирована рассылка опроса, но у события ${issues.join(" и ")}.\n\n`;
         message += `Тип служения: ${event.serviceType || event.title}\n`;
-        message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+        message += `Дата: ${formatDateTimeMoscow(event.date)}\n`;
         if (eventHasTheme && resolvedTheme) {
           message += `Тема: "${resolvedTheme}"\n`;
         }
@@ -73,14 +74,14 @@ export const sendPollNotification = async (
       } else {
         message = `📋 Напоминание: через 3 часа будет отправлен опрос о предстоящем событии.\n\n`;
         message += `Тип служения: ${event.serviceType || event.title}\n`;
-        message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+        message += `Дата: ${formatDateTimeMoscow(event.date)}\n`;
         message += `Тема: "${resolvedTheme}"\n\n`;
         message += `Пожалуйста, проверьте необходимость отправки опроса и наличие темы.`;
       }
     } else {
       // Fallback case (should not happen, but TypeScript requires it)
       message = `⚠️ Внимание! Запланирована рассылка опроса, но событие отсутствует в календаре.\n\n`;
-      message += `Дата события: ${eventDate.toLocaleDateString("ru-RU")} ${eventDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n\n`;
+      message += `Дата события: ${formatDateTimeMoscow(eventDate)}\n\n`;
       message += `Пожалуйста, проверьте календарь и создайте событие, если оно должно быть.`;
     }
     
@@ -141,7 +142,7 @@ export const sendPollFailureNotification = async (
     // Build detailed error message
     let message = `❌ ОШИБКА: Не удалось отправить опрос\n\n`;
     message += `Тип служения: ${event.serviceType || event.title}\n`;
-    message += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+    message += `Дата: ${formatDateTimeMoscow(event.date)}\n`;
     message += `ID события: ${event.id}\n\n`;
     message += `Ошибка: ${errorMessage}\n\n`;
     message += `Контекст:\n`;
@@ -304,4 +305,5 @@ export const executeAutoPollForEvent = async (
     };
   }
 };
+
 

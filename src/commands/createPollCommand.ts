@@ -2,6 +2,7 @@ import { CommandResult } from "../types";
 import { sendMessageToUser, getTelegramConfigForMode } from "../services/telegramService";
 import { getAppConfig } from "../config/environment";
 import { logInfo, logError } from "../utils/logger";
+import { formatDateTimeMoscow } from "../utils/dateHelper";
 import { getYouthEventsForDateRange } from "../services/notionService";
 import { executeAutoPollForEvent } from "./autoPollCommand";
 
@@ -91,7 +92,7 @@ export const executeCreatePollCommand = async (
       }
       
       userMessage += `Событие: ${event.title}\n`;
-      userMessage += `Дата: ${event.date.toLocaleDateString("ru-RU")} ${event.date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}\n`;
+      userMessage += `Дата: ${formatDateTimeMoscow(event.date)}\n`;
       if (event.theme) {
         userMessage += `Тема: "${event.theme}"`;
       }

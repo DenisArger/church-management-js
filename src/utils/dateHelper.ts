@@ -22,6 +22,18 @@ export const formatTime = (date: Date): string => {
   });
 };
 
+export const formatDateTimeMoscow = (date: Date): string => {
+  const datePart = date.toLocaleDateString("ru-RU", {
+    timeZone: "Europe/Moscow",
+  });
+  const timePart = date.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Moscow",
+  });
+  return `${datePart} ${timePart}`;
+};
+
 export const getCurrentDate = (): Date => {
   return new Date();
 };
