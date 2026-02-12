@@ -95,22 +95,22 @@ describe("pollScheduler", () => {
   });
 
   describe("shouldSendYouthCareReminder", () => {
-    it("returns true on 10th at 11:00 Moscow within 15 minutes", () => {
-      // Moscow is UTC+3, so 11:05 Moscow = 08:05 UTC
-      const now = new Date(Date.UTC(2025, 0, 10, 8, 5, 0, 0));
+    it("returns true on 12th at 17:30 Moscow within 15 minutes", () => {
+      // Moscow is UTC+3, so 17:35 Moscow = 14:35 UTC
+      const now = new Date(Date.UTC(2025, 0, 12, 14, 35, 0, 0));
       expect(shouldSendYouthCareReminder(now)).toBe(true);
     });
-    it("returns true on 20th at 11:00 Moscow within 15 minutes", () => {
-      const now = new Date(Date.UTC(2025, 0, 20, 8, 10, 0, 0));
+    it("returns true on 20th at 17:30 Moscow within 15 minutes", () => {
+      const now = new Date(Date.UTC(2025, 0, 20, 14, 40, 0, 0));
       expect(shouldSendYouthCareReminder(now)).toBe(true);
     });
     it("returns false on other days", () => {
-      const now = new Date(Date.UTC(2025, 0, 11, 8, 5, 0, 0));
+      const now = new Date(Date.UTC(2025, 0, 11, 14, 35, 0, 0));
       expect(shouldSendYouthCareReminder(now)).toBe(false);
     });
     it("returns false outside the 15-minute window", () => {
-      // 11:20 Moscow = 08:20 UTC
-      const now = new Date(Date.UTC(2025, 0, 10, 8, 20, 0, 0));
+      // 17:50 Moscow = 14:50 UTC
+      const now = new Date(Date.UTC(2025, 0, 12, 14, 50, 0, 0));
       expect(shouldSendYouthCareReminder(now)).toBe(false);
     });
   });
