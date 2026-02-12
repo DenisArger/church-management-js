@@ -1,5 +1,5 @@
 import { CommandResult } from "../types";
-import { getAppConfig, getTelegramConfig } from "../config/environment";
+import { getAppConfig } from "../config/environment";
 import {
   getTelegramConfigForMode,
   sendMessageToUser,
@@ -7,6 +7,7 @@ import {
 } from "../services/telegramService";
 import { getRandomYouthCareReminder } from "../utils/youthCareReminderGenerator";
 import { logInfo, logWarn, logError } from "../utils/logger";
+import { getYouthLeadersMapping } from "../services/notionService";
 
 type ReminderSendOptions = {
   suppressDebugMessage?: boolean;
@@ -18,14 +19,14 @@ export const sendYouthCareReminderToAdmins = async (
   options?: ReminderSendOptions
 ): Promise<CommandResult> => {
   const appConfig = getAppConfig();
-  const telegramConfig = getTelegramConfig();
-  const adminUsers = telegramConfig.allowedUsers;
+  const youthLeaders = await getYouthLeadersMapping();
+  const adminUsers = Array.from(youthLeaders.keys());
 
   if (adminUsers.length === 0) {
-    logWarn("No allowed users configured for youth care reminder", {
+    logWarn("No active youth leaders configured for youth care reminder", {
       ...(options?.context || {}),
     });
-    return { success: false, error: "No administrator configured" };
+    return { success: false, error: "No active youth leaders configured" };
   }
 
   const isDebug = options?.forceDebug ? true : appConfig.debug;
