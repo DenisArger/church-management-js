@@ -57,11 +57,11 @@ describe("pollScheduler", () => {
       const now = new Date(notifyTime.getTime() + 10 * 60 * 1000);
       expect(shouldSendNotification(event, now)).toBe(true);
     });
-    it("returns true within 15 min before notification time", () => {
+    it("returns false within 15 min before notification time", () => {
       const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));
       const notifyTime = new Date(Date.UTC(2025, 0, 19, 13, 0, 0, 0));
       const now = new Date(notifyTime.getTime() - 10 * 60 * 1000);
-      expect(shouldSendNotification(event, now)).toBe(true);
+      expect(shouldSendNotification(event, now)).toBe(false);
     });
     it("returns false after 15 min past notification time", () => {
       const event = new Date(Date.UTC(2025, 0, 20, 16, 0, 0, 0));

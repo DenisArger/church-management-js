@@ -173,9 +173,9 @@ export const shouldSendNotification = (
   const nowMoscowMs = toMoscowTimestamp(currentTime);
   const notificationTimeMs = eventMoscowMs - 27 * 60 * 60 * 1000;
 
-  // Allow a 15-minute window on both sides of notification time
+  // Allow sending only after target time, within the next 15 minutes
   const timeDiff = nowMoscowMs - notificationTimeMs;
-  if (Math.abs(timeDiff) < FIFTEEN_MINUTES_MS) {
+  if (timeDiff >= 0 && timeDiff < FIFTEEN_MINUTES_MS) {
     logInfo("Should send notification now", {
       eventDate: eventDate.toISOString(),
       currentTime: currentTime.toISOString(),
