@@ -1,5 +1,8 @@
 # Church Telegram Bot
 
+[![CI](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml/badge.svg)](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
 Полная замена Django бота на функциональный JavaScript/TypeScript с использованием Netlify Functions.
 
 ## 🚀 Быстрый старт
