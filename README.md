@@ -1,115 +1,117 @@
 # Church Telegram Bot
 
-[![CI](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml/badge.svg)](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+## English
 
-Полная замена Django бота на функциональный JavaScript/TypeScript с использованием Netlify Functions.
+## Problem
+Church teams need centralized communication workflows (announcements, schedules, polls, requests) without manual routine in chats.
 
-## 🚀 Быстрый старт
+## Solution
+This project provides a TypeScript Telegram bot with Notion/Supabase integrations and Netlify deployment scripts for production operations.
 
-### 1. Установка зависимостей
+## Tech Stack
+- Node.js + TypeScript
+- `node-telegram-bot-api`
+- Notion API (`@notionhq/client`)
+- Supabase (`@supabase/supabase-js`)
+- Netlify Functions / Netlify CLI
+- Jest + ESLint
 
+## Architecture
+Top-level structure:
+```text
+src/
+netlify/
+scripts/
+docs/
+debug-server.ts
+package.json
+```
+
+```mermaid
+flowchart TD
+  A[Telegram User] --> B[Bot Handlers]
+  B --> C[Business Logic in src]
+  C --> D[Notion API]
+  C --> E[Supabase]
+  B --> F[Netlify Deployment/Webhook Scripts]
+```
+
+## Features
+- Telegram bot interaction flows
+- Notion-backed content/data operations
+- Supabase data integration
+- Production scripts for setup, webhook, deploy
+- Test and lint tooling for maintenance
+
+## How to Run
 ```bash
 yarn install
-```
-
-### 2. Настройка переменных окружения
-
-Создайте файл `.env` в корне проекта со следующими переменными:
-
-```env
-# Telegram Configuration
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-ALLOWED_USERS=282850458,123456789
-TELEGRAM_MAIN_CHANNEL_ID=-1001135084750
-TELEGRAM_MAIN_GROUP_ID=-1001674885449
-TELEGRAM_YOUTH_GROUP_ID=-1001411665242
-
-# Notion Configuration
-NOTION_TOKEN=your_notion_token_here
-NOTION_PRAYER_DATABASE=c4dd9c96b8f94554bb9b020eda4e2667
-NOTION_GENERAL_CALENDAR_DATABASE=03fe215aa37249f59c225f099db234fd
-NOTION_DAILY_DISTRIBUTION_DATABASE=193b2c38419f80f4945dd84854f0dacd
-
-# Application Configuration
-NODE_ENV=production
-LOG_LEVEL=info
-LOG_FORMAT=json
-
-# Netlify Configuration
-NETLIFY_SITE_URL=https://your-site.netlify.app
-```
-
-Для production с многошаговыми формами (`/fill_sunday_service`, `/edit_schedule`, `/add_prayer`, `/youth_report`) нужны **SUPABASE_URL** и **SUPABASE_SERVICE_KEY** и таблица `user_form_state` ([scripts/supabase-schema.sql](scripts/supabase-schema.sql)); иначе в serverless состояние форм между шагами не сохраняется.
-
-### 3. Локальная разработка
-
-```bash
+cp env.example .env
 yarn dev
 ```
 
-Запускает debug-сервер (Express) на `http://localhost:3000` с webhook на `/webhook`. Для проверки через Telegram используйте ngrok: `yarn test:ngrok`, затем настройте webhook на ваш ngrok-URL.
-
-Альтернатива — окружение Netlify локально:
-
+Useful commands:
 ```bash
+yarn build
+yarn test
+yarn lint
 yarn netlify:dev
 ```
 
-### 4. Настройка на продакшен
+## Русский
 
-```bash
-# Автоматическая настройка для продакшена
-yarn setup:production
+## Проблема
+Церковным командам нужен централизованный инструмент для коммуникации (анонсы, расписания, опросы, заявки) без ручной рутины в чатах.
 
-# Или вручную
-./scripts/setup-production.sh
+## Решение
+Проект реализует Telegram-бота на TypeScript с интеграциями Notion/Supabase и скриптами деплоя через Netlify.
+
+## Стек
+- Node.js + TypeScript
+- `node-telegram-bot-api`
+- Notion API (`@notionhq/client`)
+- Supabase (`@supabase/supabase-js`)
+- Netlify Functions / Netlify CLI
+- Jest + ESLint
+
+## Архитектура
+Верхнеуровневая структура:
+```text
+src/
+netlify/
+scripts/
+docs/
+debug-server.ts
+package.json
 ```
 
-Подробнее: [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md)
+```mermaid
+flowchart TD
+  A[Пользователь Telegram] --> B[Обработчики бота]
+  B --> C[Бизнес-логика в src]
+  C --> D[Notion API]
+  C --> E[Supabase]
+  B --> F[Скрипты деплоя/вебхука Netlify]
+```
 
-### 5. Сборка и деплой
+## Возможности
+- Диалоги и обработчики команд Telegram-бота
+- Работа с данными/контентом через Notion
+- Интеграция с Supabase
+- Продакшен-скрипты для setup, webhook и deploy
+- Тесты и линтинг для сопровождения
 
+## Как запустить
 ```bash
-# Полный деплой с настройкой webhook
-yarn deploy:full
+yarn install
+cp env.example .env
+yarn dev
+```
 
-# Или вручную
+Полезные команды:
+```bash
 yarn build
-yarn deploy
+yarn test
+yarn lint
+yarn netlify:dev
 ```
-
-## 📋 Команды бота
-
-- `/create_poll` - Создание опроса для молодежной встречи
-- `/request_pray` - Рассылка молитвенных нужд
-- `/request_state_sunday` - Информация о воскресном служении
-
-## 🏗️ Архитектура
-
-Проект использует функциональный подход без классов:
-
-- **Services** - работа с внешними API (Telegram, Notion)
-- **Commands** - обработка команд бота
-- **Handlers** - маршрутизация сообщений
-- **Utils** - вспомогательные функции
-- **Config** - конфигурация приложения
-
-## 🔧 Технологии
-
-- TypeScript
-- Node.js
-- Netlify Functions
-- Telegram Bot API
-- Notion API
-- Yarn
-
-## 📊 Мониторинг
-
-- Логирование через Netlify Functions
-- Аналитика через Netlify Analytics
-- Отслеживание ошибок в консоли Netlify
-
-## ✅ Статус проекта
-
-Проект полностью восстановлен и готов к использованию! Все файлы созданы заново с функциональным подходом.
