@@ -1,4 +1,5 @@
 # Church Telegram Bot
+[![CI](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml/badge.svg)](https://github.com/DenisArger/church-management-js/actions/workflows/ci.yml)
 
 ## English
 
