@@ -277,8 +277,6 @@ const mapNotionPageToWeeklyService = (
     "Details",
     "Информация о служении",
     "Service Info",
-    "Тема",
-    "Topic",
     "Содержание",
     "Content",
   ];
