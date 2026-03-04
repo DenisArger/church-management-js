@@ -974,6 +974,81 @@ export const createYouthReportRecord = async (
   }
 };
 
+/**
+ * Check whether leader has at least one youth report in a specific month.
+ * @param leaderName - Leader name from "Лидер" select
+ * @param year - Full year (e.g. 2026)
+ * @param month - 1-based month (1..12)
+ */
+export const hasYouthReportForLeaderInMonth = async (
+  leaderName: string,
+  year: number,
+  month: number
+): Promise<boolean> => {
+  try {
+    const client = getNotionClient();
+    const config = getNotionConfig();
+
+    if (!config.youthReportDatabase) {
+      logError("NOTION_YOUTH_REPORT_DATABASE not configured");
+      return false;
+    }
+
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      logWarn("Invalid month provided for youth report check", {
+        leaderName,
+        year,
+        month,
+      });
+      return false;
+    }
+
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+    const startDate = formatDateForNotion(start);
+    const endDate = formatDateForNotion(end);
+
+    const response = await client.databases.query({
+      database_id: config.youthReportDatabase,
+      filter: {
+        and: [
+          {
+            property: "Лидер",
+            select: { equals: leaderName },
+          },
+          {
+            property: "Дата отчета",
+            date: { on_or_after: startDate },
+          },
+          {
+            property: "Дата отчета",
+            date: { on_or_before: endDate },
+          },
+        ],
+      },
+      page_size: 1,
+    });
+
+    const hasReport = response.results.length > 0;
+    logInfo("Checked youth report completion for leader", {
+      leaderName,
+      year,
+      month,
+      hasReport,
+      resultsCount: response.results.length,
+    });
+    return hasReport;
+  } catch (error) {
+    logError("Error checking youth report completion for leader", {
+      leaderName,
+      year,
+      month,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+};
+
 // Кэш для маппинга лидеров (обновляется каждые 5 минут)
 let youthLeadersCache: Map<number, string> | null = null;
 let youthLeadersCacheTimestamp: number = 0;

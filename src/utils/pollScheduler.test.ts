@@ -3,6 +3,7 @@ import {
   shouldSendPoll,
   shouldSendNotification,
   shouldSendYouthReportReminder,
+  shouldSendYouthReportFollowUpReminder,
   shouldSendYouthCareReminder,
   hasTheme,
   isEventMissing,
@@ -112,6 +113,33 @@ describe("pollScheduler", () => {
       // 17:50 Moscow = 14:50 UTC
       const now = new Date(Date.UTC(2025, 0, 12, 14, 50, 0, 0));
       expect(shouldSendYouthCareReminder(now)).toBe(false);
+    });
+  });
+
+  describe("shouldSendYouthReportFollowUpReminder", () => {
+    it("returns true on 1st at 11:05 Moscow within 15 minutes", () => {
+      const now = new Date(Date.UTC(2025, 1, 1, 8, 5, 0, 0));
+      expect(shouldSendYouthReportFollowUpReminder(now)).toBe(true);
+    });
+
+    it("returns true on 3rd at 11:10 Moscow within 15 minutes", () => {
+      const now = new Date(Date.UTC(2025, 1, 3, 8, 10, 0, 0));
+      expect(shouldSendYouthReportFollowUpReminder(now)).toBe(true);
+    });
+
+    it("returns true on 5th at 11:14 Moscow within 15 minutes", () => {
+      const now = new Date(Date.UTC(2025, 1, 5, 8, 14, 0, 0));
+      expect(shouldSendYouthReportFollowUpReminder(now)).toBe(true);
+    });
+
+    it("returns false on 2nd", () => {
+      const now = new Date(Date.UTC(2025, 1, 2, 8, 5, 0, 0));
+      expect(shouldSendYouthReportFollowUpReminder(now)).toBe(false);
+    });
+
+    it("returns false outside the 15-minute window", () => {
+      const now = new Date(Date.UTC(2025, 1, 1, 8, 20, 0, 0));
+      expect(shouldSendYouthReportFollowUpReminder(now)).toBe(false);
     });
   });
 

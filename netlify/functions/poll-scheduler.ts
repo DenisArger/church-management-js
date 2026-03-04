@@ -16,6 +16,7 @@ import {
   shouldSendNotification,
   shouldSendPoll,
   shouldSendYouthCareReminder,
+  shouldSendYouthReportFollowUpReminder,
   shouldSendYouthReportReminder,
   shouldSendWeeklySchedule,
 } from "../../src/utils/pollScheduler";
@@ -40,6 +41,25 @@ const getSchedulerNow = (): Date => {
   }
   logInfo("Using overridden scheduler time", { now: parsed.toISOString() });
   return parsed;
+};
+
+const getPreviousMoscowMonth = (
+  date: Date
+): { year: number; month: number } => {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((p) => p.type === "year")?.value || "0");
+  const month = Number(parts.find((p) => p.type === "month")?.value || "0");
+
+  if (month <= 1) {
+    return { year: year - 1, month: 12 };
+  }
+
+  return { year, month: month - 1 };
 };
 
 export const handler: Handler = async (event: HandlerEvent) => {
@@ -106,12 +126,38 @@ export const handler: Handler = async (event: HandlerEvent) => {
       const result = await sendYouthReportReminderToAdmins({
         suppressDebugMessage: false,
         forceDebug,
+        mode: "sendToAll",
         context: { source: "poll-scheduler" },
       });
 
       if (!result.success) {
         logError("Failed to send youth report reminders", {
           error: result.error,
+        });
+      }
+    }
+
+    if (shouldSendYouthReportFollowUpReminder(now)) {
+      const targetMonth = getPreviousMoscowMonth(now);
+      const result = await sendYouthReportReminderToAdmins({
+        suppressDebugMessage: false,
+        forceDebug,
+        mode: "sendOnlyMissing",
+        targetMonth,
+        context: { source: "poll-scheduler", flow: "follow-up" },
+      });
+
+      if (!result.success) {
+        logError("Failed to send youth report follow-up reminders", {
+          error: result.error,
+          targetMonth,
+        });
+      } else {
+        logInfo("Youth report follow-up reminder run completed", {
+          targetMonth,
+          leadersChecked: result.data?.leadersChecked,
+          remindersSent: result.data?.remindersSent,
+          skippedAsCompleted: result.data?.skippedAsCompleted,
         });
       }
     }

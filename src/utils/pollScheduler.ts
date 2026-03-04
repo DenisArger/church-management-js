@@ -240,6 +240,24 @@ export const shouldSendYouthReportReminder = (
 };
 
 /**
+ * Check if follow-up youth report reminder should be sent.
+ * Target dates: 1st, 3rd, 5th day of month at 11:00 (Europe/Moscow), 15-minute window.
+ */
+export const shouldSendYouthReportFollowUpReminder = (
+  currentTime: Date = new Date()
+): boolean => {
+  const parts = getMoscowDateParts(currentTime);
+  if (parts.day !== 1 && parts.day !== 3 && parts.day !== 5) return false;
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 0 })) {
+    logInfo("Should send youth report follow-up reminder now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
  * Check if youth prayer/communication reminder should be sent to administrators.
  * Target time: 12th and 20th of month at 17:30 (Europe/Moscow), 15-minute window after target.
  */
