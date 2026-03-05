@@ -60,8 +60,8 @@ describe("poll-scheduler youth report reminders", () => {
     }
   });
 
-  it("triggers follow-up reminder on 2026-04-01 11:05 Moscow for March 2026", async () => {
-    process.env.SCHEDULER_NOW_ISO = "2026-04-01T08:05:00.000Z";
+  it("triggers follow-up reminder on 2026-04-01 11:45 Moscow for March 2026", async () => {
+    process.env.SCHEDULER_NOW_ISO = "2026-04-01T08:45:00.000Z";
 
     await handler(
       {
@@ -80,10 +80,10 @@ describe("poll-scheduler youth report reminders", () => {
   });
 
   it("triggers follow-up reminder on 2026-04-03 and 2026-04-05 for March 2026", async () => {
-    process.env.SCHEDULER_NOW_ISO = "2026-04-03T08:05:00.000Z";
+    process.env.SCHEDULER_NOW_ISO = "2026-04-03T08:45:00.000Z";
     await handler({ httpMethod: "GET", headers: {} } as any, {} as any);
 
-    process.env.SCHEDULER_NOW_ISO = "2026-04-05T08:05:00.000Z";
+    process.env.SCHEDULER_NOW_ISO = "2026-04-05T08:45:00.000Z";
     await handler({ httpMethod: "GET", headers: {} } as any, {} as any);
 
     expect(sendYouthReportReminderToAdmins).toHaveBeenNthCalledWith(
