@@ -8,6 +8,11 @@ jest.mock("../utils/authHelper", () => ({
 jest.mock("../services/telegramService", () => ({
   sendMessage: jest.fn().mockResolvedValue({ success: true }),
   answerCallbackQuery: jest.fn().mockResolvedValue(undefined),
+  copyMessageToTopic: jest.fn().mockResolvedValue({
+    success: true,
+    data: { messageId: 999 },
+  }),
+  deleteTelegramMessage: jest.fn().mockResolvedValue({ success: true }),
 }));
 jest.mock("../commands/helpCommand", () => ({
   executeHelpCommand: jest.fn().mockResolvedValue({ success: true }),
@@ -16,6 +21,14 @@ jest.mock("../commands/showMenuCommand", () => ({
   executeShowMenuCommand: jest.fn().mockResolvedValue({ success: true }),
 }));
 jest.mock("../utils/logger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+jest.mock("../config/environment", () => ({
+  getTelegramConfig: jest.fn(() => ({
+    mainGroupId: "-10012345",
+    mainGroupPrayersTopicId: "77",
+    prayerRelayEnabled: "true",
+    prayerRelayKeywords: "молитвенная нужда,помолитесь,молитва,нужда",
+  })),
+}));
 // Minimal mocks for state and other handlers used by handleMessage/handleCallbackQuery
 jest.mock("../utils/sundayServiceState", () => ({ hasActiveState: jest.fn().mockResolvedValue(false) }));
 jest.mock("../utils/scheduleState", () => ({ hasActiveState: jest.fn().mockResolvedValue(false) }));
@@ -58,6 +71,8 @@ jest.mock("../services/notionService", () => ({ createPrayerNeed: jest.fn().mock
 const isUserAuthorized = jest.requireMock<typeof import("../utils/authHelper")>("../utils/authHelper").isUserAuthorized as jest.Mock;
 const getUnauthorizedMessage = jest.requireMock<typeof import("../utils/authHelper")>("../utils/authHelper").getUnauthorizedMessage as jest.Mock;
 const sendMessage = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").sendMessage as jest.Mock;
+const copyMessageToTopic = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").copyMessageToTopic as jest.Mock;
+const deleteTelegramMessage = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").deleteTelegramMessage as jest.Mock;
 const executeHelpCommand = jest.requireMock<typeof import("../commands/helpCommand")>("../commands/helpCommand").executeHelpCommand as jest.Mock;
 const executeShowMenuCommand = jest.requireMock<typeof import("../commands/showMenuCommand")>("../commands/showMenuCommand").executeShowMenuCommand as jest.Mock;
 
@@ -121,5 +136,101 @@ describe("messageHandler handleUpdate", () => {
     const r = await handleUpdate({ update_id: 1 });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/No message or callback_query/i);
+  });
+
+  it("copies matching bot message from general topic to prayers topic and deletes source", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 123,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Новая молитвенная нужда, помолитесь пожалуйста",
+        date: 1,
+      },
+    };
+
+    const result = await handleUpdate(update);
+
+    expect(result.success).toBe(true);
+    expect(copyMessageToTopic).toHaveBeenCalledWith(-10012345, -10012345, 123, 77);
+    expect(deleteTelegramMessage).toHaveBeenCalledWith(-10012345, 123);
+  });
+
+  it("does not relay bot message without matching keywords", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 124,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Добро пожаловать в группу",
+        date: 1,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(copyMessageToTopic).not.toHaveBeenCalled();
+    expect(deleteTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not relay messages already in prayers topic", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 125,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Молитвенная нужда",
+        date: 1,
+        message_thread_id: 77,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(copyMessageToTopic).not.toHaveBeenCalled();
+    expect(deleteTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it("relays matching bot message from forum general topic thread id 1", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 127,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Просьба: молитва за здоровье",
+        date: 1,
+        message_thread_id: 1,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(copyMessageToTopic).toHaveBeenCalledWith(-10012345, -10012345, 127, 77);
+    expect(deleteTelegramMessage).toHaveBeenCalledWith(-10012345, 127);
+  });
+
+  it("does not delete source when copy fails", async () => {
+    copyMessageToTopic.mockResolvedValueOnce({ success: false, error: "copy failed" });
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 126,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Молитва о семье",
+        date: 1,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(copyMessageToTopic).toHaveBeenCalled();
+    expect(deleteTelegramMessage).not.toHaveBeenCalled();
   });
 });

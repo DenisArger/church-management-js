@@ -3,6 +3,7 @@ export interface TelegramUser {
   username?: string;
   first_name: string;
   last_name?: string;
+  is_bot?: boolean;
 }
 
 export interface TelegramMessage {
@@ -16,6 +17,8 @@ export interface TelegramMessage {
   text?: string;
   date: number;
   forward_from?: TelegramUser;
+  message_thread_id?: number;
+  is_topic_message?: boolean;
 }
 
 export interface TelegramCallbackQuery {

@@ -228,3 +228,59 @@ export const answerCallbackQuery = async (
     };
   }
 };
+
+export const copyMessageToTopic = async (
+  chatId: number,
+  fromChatId: number,
+  messageId: number,
+  messageThreadId: number
+): Promise<CommandResult> => {
+  try {
+    const bot = getTelegramBot();
+    const copiedMessageId = await bot.copyMessage(chatId, fromChatId, messageId, {
+      message_thread_id: messageThreadId,
+    });
+
+    logInfo(`Message copied to topic ${messageThreadId}`, {
+      chatId,
+      fromChatId,
+      messageId,
+      copiedMessageId,
+    });
+
+    return {
+      success: true,
+      message: "Message copied successfully",
+      data: { messageId: copiedMessageId },
+    };
+  } catch (error) {
+    logError("Error copying message to topic", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};
+
+export const deleteTelegramMessage = async (
+  chatId: number,
+  messageId: number
+): Promise<CommandResult> => {
+  try {
+    const bot = getTelegramBot();
+    await bot.deleteMessage(chatId, messageId);
+
+    logInfo(`Message deleted from ${chatId}`, { messageId });
+
+    return {
+      success: true,
+      message: "Message deleted successfully",
+    };
+  } catch (error) {
+    logError("Error deleting message", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};

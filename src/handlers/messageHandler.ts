@@ -31,10 +31,20 @@ import {
   handleYouthReportCallback,
 } from "../commands/youthReportCommand";
 import { createPrayerNeed } from "../services/notionService";
+import {
+  sendMessage,
+  answerCallbackQuery,
+  copyMessageToTopic,
+  deleteTelegramMessage,
+} from "../services/telegramService";
+import { getTelegramConfig } from "../config/environment";
+import {
+  getPrayerRelayConfig,
+  shouldRelayPrayerMessage,
+} from "../services/prayerRelayService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
-import { sendMessage, answerCallbackQuery } from "../services/telegramService";
 import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
 import { hasActiveState } from "../utils/sundayServiceState";
 import {
@@ -94,6 +104,53 @@ export const handleMessage = async (
 
   if (!text) {
     return { success: false, error: "No text in message" };
+  }
+
+  if (chatType === "supergroup") {
+    const relayConfig = getPrayerRelayConfig(getTelegramConfig());
+    const relayDecision = shouldRelayPrayerMessage(message, relayConfig);
+
+    if (relayDecision.shouldRelay && relayConfig.prayersTopicId) {
+      const copyResult = await copyMessageToTopic(
+        chatId,
+        chatId,
+        message.message_id,
+        relayConfig.prayersTopicId
+      );
+
+      if (!copyResult.success) {
+        logWarn("Prayer relay copy failed", {
+          chatId,
+          sourceMessageId: message.message_id,
+          targetTopicId: relayConfig.prayersTopicId,
+          error: copyResult.error,
+        });
+      } else {
+        logInfo("Prayer relay copy succeeded", {
+          chatId,
+          sourceMessageId: message.message_id,
+          copiedMessageId: copyResult.data?.messageId ?? null,
+          targetTopicId: relayConfig.prayersTopicId,
+        });
+
+        const deleteResult = await deleteTelegramMessage(chatId, message.message_id);
+        if (!deleteResult.success) {
+          logWarn("Prayer relay delete failed", {
+            chatId,
+            sourceMessageId: message.message_id,
+            targetTopicId: relayConfig.prayersTopicId,
+            error: deleteResult.error,
+          });
+        }
+      }
+    } else {
+      logInfo("Prayer relay skipped", {
+        chatId,
+        messageId: message.message_id,
+        reason: relayDecision.reason ?? "unknown",
+        messageThreadId: messageThreadId ?? null,
+      });
+    }
   }
 
   // Handle commands

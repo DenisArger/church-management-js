@@ -28,9 +28,14 @@ export const getTelegramConfig = () => {
     botToken: process.env.TELEGRAM_BOT_TOKEN!,
     allowedUsers,
     mainGroupId: getAppConfigValue("TELEGRAM_MAIN_GROUP_ID"),
+    mainGroupPrayersTopicId: getAppConfigValue(
+      "TELEGRAM_MAIN_GROUP_PRAYERS_TOPIC_ID"
+    ),
     mainChannelId: getAppConfigValue("TELEGRAM_MAIN_CHANNEL_ID"),
     announcementsTopicId: getAppConfigValue("TELEGRAM_ANNOUNCEMENTS_TOPIC_ID"),
     youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),
+    prayerRelayEnabled: getAppConfigValue("TELEGRAM_PRAYER_RELAY_ENABLED"),
+    prayerRelayKeywords: getAppConfigValue("TELEGRAM_PRAYER_RELAY_KEYWORDS"),
     debugBotToken: process.env.TELEGRAM_BOT_TOKEN_DEBUG,
     debugChatId: getAppConfigValue("TELEGRAM_CHAT_ID_DEBUG"),
     debugTopicId: getAppConfigValue("TELEGRAM_TOPIC_ID_DEBUG"),
