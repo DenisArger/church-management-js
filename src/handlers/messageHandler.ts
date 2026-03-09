@@ -36,12 +36,18 @@ import {
   answerCallbackQuery,
   copyMessageToTopic,
   deleteTelegramMessage,
+  safeRepublishBroadcastMessage,
 } from "../services/telegramService";
 import { getTelegramConfig } from "../config/environment";
 import {
   getPrayerRelayConfig,
   shouldRelayPrayerMessage,
 } from "../services/prayerRelayService";
+import {
+  getBroadcastRewriteConfig,
+  shouldRewriteBroadcastMessage,
+  buildRewrittenBroadcastMessage,
+} from "../services/broadcastRewriteService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
@@ -87,6 +93,7 @@ export const handleMessage = async (
   const chatId = message.chat.id;
   const userId = message.from.id;
   const text = message.text;
+  const bodyText = message.text ?? message.caption;
   const chatType = message.chat.type;
   const messageThreadId = (message as any).message_thread_id;
   const forwardFromChat = (message as any).forward_from_chat;
@@ -98,16 +105,73 @@ export const handleMessage = async (
     messageThreadId: messageThreadId ?? null,
     forwardFromChatId: forwardFromChat?.id ?? null,
     forwardFromChatTitle: forwardFromChat?.title ?? null,
-    text: text?.substring(0, 100),
+    text: bodyText?.substring(0, 100),
     command: text?.trim().split(" ")[0] ?? null,
   });
 
-  if (!text) {
-    return { success: false, error: "No text in message" };
+  if (!bodyText) {
+    return { success: false, error: "No text or caption in message" };
   }
 
   if (chatType === "supergroup") {
-    const relayConfig = getPrayerRelayConfig(getTelegramConfig());
+    const telegramConfig = getTelegramConfig();
+    const broadcastConfig = getBroadcastRewriteConfig(telegramConfig);
+    const broadcastDecision = shouldRewriteBroadcastMessage(
+      message,
+      broadcastConfig
+    );
+
+    if (broadcastDecision.shouldRewrite) {
+      const rewrittenMessage = buildRewrittenBroadcastMessage(message);
+
+      if (!rewrittenMessage) {
+        logWarn("Broadcast rewrite build failed", {
+          chatId,
+          messageId: message.message_id,
+        });
+      } else {
+        const republishResult = await safeRepublishBroadcastMessage(
+          message,
+          rewrittenMessage.rewrittenText
+        );
+
+        if (!republishResult.success) {
+          logWarn("Broadcast rewrite republish failed", {
+            chatId,
+            sourceMessageId: message.message_id,
+            messageThreadId: messageThreadId ?? null,
+            error: republishResult.error,
+          });
+        } else {
+          logInfo("Broadcast rewrite republish succeeded", {
+            chatId,
+            sourceMessageId: message.message_id,
+            copiedMessageId: republishResult.data?.messageId ?? null,
+            messageThreadId: messageThreadId ?? null,
+            templateIndex: rewrittenMessage.templateIndex,
+          });
+
+          const deleteResult = await deleteTelegramMessage(chatId, message.message_id);
+          if (!deleteResult.success) {
+            logWarn("Broadcast rewrite delete failed", {
+              chatId,
+              sourceMessageId: message.message_id,
+              messageThreadId: messageThreadId ?? null,
+              error: deleteResult.error,
+            });
+          }
+        }
+      }
+    } else {
+      logInfo("Broadcast rewrite skipped", {
+        chatId,
+        messageId: message.message_id,
+        reason: broadcastDecision.reason ?? "unknown",
+        messageThreadId: messageThreadId ?? null,
+      });
+    }
+
+    const relayConfig = getPrayerRelayConfig(telegramConfig);
     const relayDecision = shouldRelayPrayerMessage(message, relayConfig);
 
     if (relayDecision.shouldRelay && relayConfig.prayersTopicId) {
@@ -154,44 +218,64 @@ export const handleMessage = async (
   }
 
   // Handle commands
-  const commandParts = text.trim().split(" ");
+  const commandParts = (text ?? "").trim().split(" ");
   const command = commandParts[0];
   const params = commandParts.slice(1);
 
   // Check if it's a command (starts with /)
-  const isCommand = command.startsWith("/");
+  const isCommand = text !== undefined && command.startsWith("/");
 
   // Check for scripture schedule in private chats (before other checks)
   if (!isCommand && chatType === "private") {
     const isForwarded = message.forward_from !== undefined;
-    const containsSchedule = isScriptureSchedule(text);
+    const containsSchedule = text !== undefined && isScriptureSchedule(text);
 
-    if (isForwarded || containsSchedule) {
+    if (text !== undefined && (isForwarded || containsSchedule)) {
       // Process scripture schedule (works with or without active form state)
       return await handleScriptureScheduleMessage(userId, chatId, text);
     }
   }
 
   // Check if user is in Sunday service form filling process
-  if (!isCommand && chatType === "private" && (await hasActiveState(userId))) {
+  if (
+    !isCommand &&
+    text !== undefined &&
+    chatType === "private" &&
+    (await hasActiveState(userId))
+  ) {
     // Handle regular text input for Sunday service form
     return await handleSundayServiceTextInput(userId, chatId, text);
   }
 
   // Check if user is in schedule form filling process
-  if (!isCommand && chatType === "private" && (await hasActiveScheduleState(userId))) {
+  if (
+    !isCommand &&
+    text !== undefined &&
+    chatType === "private" &&
+    (await hasActiveScheduleState(userId))
+  ) {
     // Handle regular text input for schedule form
     return await handleScheduleTextInput(userId, chatId, text);
   }
 
   // Check if user is in prayer form filling process
-  if (!isCommand && chatType === "private" && (await hasActivePrayerState(userId))) {
+  if (
+    !isCommand &&
+    text !== undefined &&
+    chatType === "private" &&
+    (await hasActivePrayerState(userId))
+  ) {
     // Handle regular text input for prayer form
     return await executeAddPrayerCommand(userId, chatId, [text]);
   }
 
   // Check if user is in youth report form filling process
-  if (!isCommand && chatType === "private" && (await hasActiveYouthReportState(userId))) {
+  if (
+    !isCommand &&
+    text !== undefined &&
+    chatType === "private" &&
+    (await hasActiveYouthReportState(userId))
+  ) {
     // Handle regular text input for youth report form
     return await executeYouthReportCommand(userId, chatId, [text]);
   }
@@ -202,7 +286,7 @@ export const handleMessage = async (
       logInfo("Ignoring non-command message in group", {
         userId,
         chatId,
-        text: text.substring(0, 50),
+        text: bodyText.substring(0, 50),
       });
       return { success: true, message: "Message ignored" };
     }
@@ -270,7 +354,7 @@ export const handleMessage = async (
 
     default:
       // Check if it's a prayer request (only in private chats)
-      if (chatType === "private" && isPrayerRequest(text)) {
+      if (chatType === "private" && text !== undefined && isPrayerRequest(text)) {
         return await handlePrayerNeed(message);
       }
 
@@ -278,7 +362,7 @@ export const handleMessage = async (
       logInfo("Ignoring message", {
         userId,
         chatId,
-        text: text.substring(0, 50),
+        text: bodyText.substring(0, 50),
       });
       return { success: true, message: "Message ignored" };
   }

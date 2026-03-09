@@ -12,6 +12,10 @@ jest.mock("../services/telegramService", () => ({
     success: true,
     data: { messageId: 999 },
   }),
+  safeRepublishBroadcastMessage: jest.fn().mockResolvedValue({
+    success: true,
+    data: { messageId: 1001 },
+  }),
   deleteTelegramMessage: jest.fn().mockResolvedValue({ success: true }),
 }));
 jest.mock("../commands/helpCommand", () => ({
@@ -25,8 +29,10 @@ jest.mock("../config/environment", () => ({
   getTelegramConfig: jest.fn(() => ({
     mainGroupId: "-10012345",
     mainGroupPrayersTopicId: "77",
+    mainGroupBroadcastTopicId: "1699",
     prayerRelayEnabled: "true",
     prayerRelayKeywords: "молитвенная нужда,помолитесь,молитва,нужда",
+    broadcastRewriteEnabled: "true",
   })),
 }));
 // Minimal mocks for state and other handlers used by handleMessage/handleCallbackQuery
@@ -72,6 +78,7 @@ const isUserAuthorized = jest.requireMock<typeof import("../utils/authHelper")>(
 const getUnauthorizedMessage = jest.requireMock<typeof import("../utils/authHelper")>("../utils/authHelper").getUnauthorizedMessage as jest.Mock;
 const sendMessage = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").sendMessage as jest.Mock;
 const copyMessageToTopic = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").copyMessageToTopic as jest.Mock;
+const safeRepublishBroadcastMessage = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").safeRepublishBroadcastMessage as jest.Mock;
 const deleteTelegramMessage = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").deleteTelegramMessage as jest.Mock;
 const executeHelpCommand = jest.requireMock<typeof import("../commands/helpCommand")>("../commands/helpCommand").executeHelpCommand as jest.Mock;
 const executeShowMenuCommand = jest.requireMock<typeof import("../commands/showMenuCommand")>("../commands/showMenuCommand").executeShowMenuCommand as jest.Mock;
@@ -232,5 +239,94 @@ describe("messageHandler handleUpdate", () => {
 
     expect(copyMessageToTopic).toHaveBeenCalled();
     expect(deleteTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it("rewrites matching multiline broadcast message and deletes source", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 200,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Прямая трансляция\n\nНаступил этот день воскресенья!\nПредавай все дела забвенью!\nПодключись, чтобы услышать слово!\n\nТрансляция в 10:00",
+        date: 1,
+        message_thread_id: 1699,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(safeRepublishBroadcastMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ message_id: 200 }),
+      expect.any(String)
+    );
+    expect(deleteTelegramMessage).toHaveBeenCalledWith(-10012345, 200);
+  });
+
+  it("rewrites matching single-line broadcast message and deletes source", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 201,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Наступил этот день воскресенья! Предавай все дела забвенью! Подключись, чтобы услышать слово!",
+        date: 1,
+        message_thread_id: 1699,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(safeRepublishBroadcastMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ message_id: 201 }),
+      expect.any(String)
+    );
+    expect(deleteTelegramMessage).toHaveBeenCalledWith(-10012345, 201);
+  });
+
+  it("does not rewrite non-matching broadcast message", async () => {
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 202,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Совсем другой анонс трансляции",
+        date: 1,
+        message_thread_id: 1699,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(safeRepublishBroadcastMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not delete source when broadcast republish fails", async () => {
+    safeRepublishBroadcastMessage.mockResolvedValueOnce({
+      success: false,
+      error: "republish failed",
+    });
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 203,
+        from: { id: 999, first_name: "Bot", is_bot: true },
+        chat: { id: -10012345, type: "supergroup" },
+        text: "Наступил этот день воскресенья! Предавай все дела забвенью! Подключись, чтобы услышать слово!",
+        date: 1,
+        message_thread_id: 1699,
+        is_topic_message: true,
+      },
+    };
+
+    await handleUpdate(update);
+
+    expect(safeRepublishBroadcastMessage).toHaveBeenCalled();
+    expect(deleteTelegramMessage).not.toHaveBeenCalledWith(-10012345, 203);
   });
 });

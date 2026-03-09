@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import { CommandResult } from "../types";
+import { CommandResult, TelegramMessage } from "../types";
 import { logInfo, logError } from "../utils/logger";
 import { getTelegramConfig, getAppConfig } from "../config/environment";
 
@@ -278,6 +278,66 @@ export const deleteTelegramMessage = async (
     };
   } catch (error) {
     logError("Error deleting message", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};
+
+export const safeRepublishBroadcastMessage = async (
+  message: TelegramMessage,
+  rewrittenText: string
+): Promise<CommandResult> => {
+  try {
+    const bot = getTelegramBot();
+
+    if (!message.message_thread_id) {
+      return {
+        success: false,
+        error: "Message thread ID is required for broadcast republish",
+      };
+    }
+
+    const copied = await bot.copyMessage(
+      message.chat.id,
+      message.chat.id,
+      message.message_id,
+      { message_thread_id: message.message_thread_id }
+    );
+    const copiedMessageId = copied.message_id;
+
+    if (message.text !== undefined) {
+      await bot.editMessageText(rewrittenText, {
+        chat_id: message.chat.id,
+        message_id: copiedMessageId,
+      });
+    } else if (message.caption !== undefined) {
+      await bot.editMessageCaption(rewrittenText, {
+        chat_id: message.chat.id,
+        message_id: copiedMessageId,
+      });
+    } else {
+      return {
+        success: false,
+        error: "Unsupported message type for broadcast republish",
+      };
+    }
+
+    logInfo("Broadcast message republished", {
+      chatId: message.chat.id,
+      sourceMessageId: message.message_id,
+      copiedMessageId,
+      messageThreadId: message.message_thread_id,
+    });
+
+    return {
+      success: true,
+      message: "Broadcast message republished successfully",
+      data: { messageId: copiedMessageId },
+    };
+  } catch (error) {
+    logError("Error republishing broadcast message", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

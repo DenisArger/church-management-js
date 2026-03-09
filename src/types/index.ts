@@ -15,6 +15,7 @@ export interface TelegramMessage {
     title?: string;
   };
   text?: string;
+  caption?: string;
   date: number;
   forward_from?: TelegramUser;
   message_thread_id?: number;

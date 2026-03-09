@@ -31,11 +31,17 @@ export const getTelegramConfig = () => {
     mainGroupPrayersTopicId: getAppConfigValue(
       "TELEGRAM_MAIN_GROUP_PRAYERS_TOPIC_ID"
     ),
+    mainGroupBroadcastTopicId: getAppConfigValue(
+      "TELEGRAM_MAIN_GROUP_BROADCAST_TOPIC_ID"
+    ),
     mainChannelId: getAppConfigValue("TELEGRAM_MAIN_CHANNEL_ID"),
     announcementsTopicId: getAppConfigValue("TELEGRAM_ANNOUNCEMENTS_TOPIC_ID"),
     youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),
     prayerRelayEnabled: getAppConfigValue("TELEGRAM_PRAYER_RELAY_ENABLED"),
     prayerRelayKeywords: getAppConfigValue("TELEGRAM_PRAYER_RELAY_KEYWORDS"),
+    broadcastRewriteEnabled: getAppConfigValue(
+      "TELEGRAM_BROADCAST_REWRITE_ENABLED"
+    ),
     debugBotToken: process.env.TELEGRAM_BOT_TOKEN_DEBUG,
     debugChatId: getAppConfigValue("TELEGRAM_CHAT_ID_DEBUG"),
     debugTopicId: getAppConfigValue("TELEGRAM_TOPIC_ID_DEBUG"),
