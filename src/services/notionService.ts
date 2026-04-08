@@ -223,6 +223,8 @@ export const getWeeklyPrayerRecords = async (): Promise<PrayerRecord[]> => {
 
     const response = await client.databases.query({
       database_id: config.weeklyPrayerDatabase,
+      archived: false,
+      in_trash: false,
     });
 
     logInfo("Notion response received", {
@@ -246,6 +248,16 @@ export const getWeeklyPrayerRecords = async (): Promise<PrayerRecord[]> => {
           pageId: page.id,
           properties: Object.keys(page.properties || {}),
         });
+
+        if (page.archived || page.in_trash) {
+          logInfo(`Skipping record ${idx + 1}: page is archived or in trash`, {
+            pageId: page.id,
+            archived: page.archived,
+            inTrash: page.in_trash,
+          });
+          skippedCount++;
+          continue;
+        }
 
         // Get prayer date
         const dateProperty = page.properties["Дата молитвы"] as NotionDate;
