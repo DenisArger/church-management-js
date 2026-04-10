@@ -53,6 +53,8 @@ yarn dev
 
 After `yarn install`, the repository installs a local `commit-msg` hook automatically and blocks non-conventional commit messages.
 
+Before every commit, the repository also runs `yarn verify` (`yarn build && yarn test`). If either step fails, `git commit` is blocked.
+
 Commit message format:
 ```text
 type(scope?): subject
@@ -124,6 +126,8 @@ yarn install
 cp env.example .env
 yarn dev
 ```
+
+Перед каждым коммитом репозиторий также запускает `yarn verify` (`yarn build && yarn test`). Если сборка или тесты падают, `git commit` будет заблокирован.
 
 Полезные команды:
 ```bash

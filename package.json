@@ -6,6 +6,7 @@
   "scripts": {
     "prepare": "husky",
     "build": "tsc",
+    "verify": "yarn build && yarn test",
     "dev": "nodemon --exec ts-node debug-server.ts",
     "start": "node dist/index.js",
     "deploy": "yarn build && netlify deploy --prod",
