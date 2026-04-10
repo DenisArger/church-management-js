@@ -18,3 +18,6 @@ coverage
 
 # Local Netlify folder
 .netlify
+
+# Husky generated hooks
+.husky/_

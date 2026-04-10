@@ -4,6 +4,7 @@
   "description": "Church Telegram Bot with Notion integration - Full replacement",
   "main": "dist/index.js",
   "scripts": {
+    "prepare": "husky",
     "build": "tsc",
     "dev": "nodemon --exec ts-node debug-server.ts",
     "start": "node dist/index.js",
@@ -55,6 +56,8 @@
     "node-telegram-bot-api": "^0.64.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
     "@types/jest": "^30.0.0",
@@ -63,6 +66,7 @@
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^8.0.0",
+    "husky": "^9.1.7",
     "jest": "^30.2.0",
     "netlify-cli": "^23.13.3",
     "nodemon": "^3.0.0",

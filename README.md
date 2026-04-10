@@ -51,6 +51,22 @@ cp env.example .env
 yarn dev
 ```
 
+After `yarn install`, the repository installs a local `commit-msg` hook automatically and blocks non-conventional commit messages.
+
+Commit message format:
+```text
+type(scope?): subject
+```
+
+Examples:
+```text
+feat: add webhook retry
+fix(auth): handle token refresh
+chore!: drop legacy config
+```
+
+If a commit is rejected, rewrite the message to match Conventional Commits and run `git commit` again.
+
 Useful commands:
 ```bash
 yarn build
