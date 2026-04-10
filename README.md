@@ -54,6 +54,7 @@ yarn dev
 After `yarn install`, the repository installs a local `commit-msg` hook automatically and blocks non-conventional commit messages.
 
 Before every commit, the repository also runs `yarn verify` (`yarn build && yarn test`). If either step fails, `git commit` is blocked.
+The same check also runs before `git push`.
 
 Commit message format:
 ```text
@@ -128,6 +129,7 @@ yarn dev
 ```
 
 Перед каждым коммитом репозиторий также запускает `yarn verify` (`yarn build && yarn test`). Если сборка или тесты падают, `git commit` будет заблокирован.
+Та же проверка также запускается перед `git push`.
 
 Полезные команды:
 ```bash
