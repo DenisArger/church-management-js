@@ -2,7 +2,7 @@ import { CommandResult, PrayerRecord } from "../types";
 import { sendMessage } from "../services/telegramService";
 import { getWeeklyPrayerRecords } from "../services/notionService";
 import { logInfo, logWarn } from "../utils/logger";
-import { addDays, formatDateShort } from "../utils/dateHelper";
+import { addDays, formatDateForNotion, formatDateShort } from "../utils/dateHelper";
 
 /**
  * Execute /prayer_week command
@@ -22,27 +22,34 @@ export const executePrayerWeekCommand = async (
       return await sendMessage(chatId, "Нет записей о молитвах.");
     }
 
-    // Calculate next week's date range
+    // Calculate next week's date range using the same Monday-to-Sunday logic
+    // as the weekly schedule code. This keeps the command stable across timezones.
     const today = new Date();
-    const nextWeekStart = addDays(today, 7 - today.getDay() + 1); // Next Monday
-    const nextWeekEnd = addDays(nextWeekStart, 6); // Next Sunday
+    const currentDay = today.getDay();
+    const daysUntilMonday = currentDay === 0 ? 1 : currentDay === 1 ? 7 : 8 - currentDay;
+
+    const nextWeekStart = addDays(today, daysUntilMonday);
+    nextWeekStart.setHours(0, 0, 0, 0);
+
+    const nextWeekEnd = addDays(nextWeekStart, 6);
+    nextWeekEnd.setHours(23, 59, 59, 999);
+
+    const nextWeekStartStr = formatDateForNotion(nextWeekStart);
+    const nextWeekEndStr = formatDateForNotion(nextWeekEnd);
 
     logInfo("Looking for prayer records for next week", {
-      nextWeekStart: nextWeekStart.toISOString().split("T")[0],
-      nextWeekEnd: nextWeekEnd.toISOString().split("T")[0],
+      nextWeekStart: nextWeekStartStr,
+      nextWeekEnd: nextWeekEndStr,
     });
 
     // Filter records for next week
     const nextWeekPrayers = prayerRecords.filter((record) => {
-      const recordStart = new Date(record.dateStart);
-      const recordEnd = new Date(record.dateEnd);
+      const recordStart = formatDateForNotion(new Date(record.dateStart));
+      const recordEnd = formatDateForNotion(new Date(record.dateEnd));
 
-      // Check if prayer period overlaps with next week
-      return (
-        (recordStart <= nextWeekEnd && recordEnd >= nextWeekStart) ||
-        (recordStart >= nextWeekStart && recordStart <= nextWeekEnd) ||
-        (recordEnd >= nextWeekStart && recordEnd <= nextWeekEnd)
-      );
+      // Check if prayer period overlaps with next week using date-only values.
+      // This avoids timezone drift when Notion date ranges are compared in JS.
+      return recordStart <= nextWeekEndStr && recordEnd >= nextWeekStartStr;
     });
 
     if (nextWeekPrayers.length === 0) {
