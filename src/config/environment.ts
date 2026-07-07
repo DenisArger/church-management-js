@@ -36,6 +36,7 @@ export const getTelegramConfig = () => {
     ),
     mainChannelId: getAppConfigValue("TELEGRAM_MAIN_CHANNEL_ID"),
     announcementsTopicId: getAppConfigValue("TELEGRAM_ANNOUNCEMENTS_TOPIC_ID"),
+    readBibleTopicId: getAppConfigValue("TELEGRAM_TOPIC_READ_BIBLE_ID"),
     youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),
     prayerRelayEnabled: getAppConfigValue("TELEGRAM_PRAYER_RELAY_ENABLED"),
     prayerRelayKeywords: getAppConfigValue("TELEGRAM_PRAYER_RELAY_KEYWORDS"),

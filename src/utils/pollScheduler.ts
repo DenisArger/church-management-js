@@ -258,6 +258,22 @@ export const shouldSendYouthReportFollowUpReminder = (
 };
 
 /**
+ * Check if daily scripture reading should be sent to the group.
+ * Target time: 09:00 (Europe/Moscow) every day, 15-minute window after target.
+ */
+export const shouldSendDailyScripture = (
+  currentTime: Date = new Date()
+): boolean => {
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 9, minute: 0 })) {
+    logInfo("Should send daily scripture now", {
+      currentTime: currentTime.toISOString(),
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
  * Check if youth prayer/communication reminder should be sent to administrators.
  * Target time: 12th and 20th of month at 17:30 (Europe/Moscow), 15-minute window after target.
  */

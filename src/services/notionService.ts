@@ -14,7 +14,7 @@ import {
 } from "../types";
 import { logInfo, logError, logWarn } from "../utils/logger";
 import { getNotionConfig } from "../config/environment";
-import { formatDateForNotion } from "../utils/dateHelper";
+import { formatDateForNotion, formatMoscowDate } from "../utils/dateHelper";
 
 let notionClient: Client | null = null;
 
@@ -169,19 +169,29 @@ export const getCalendarItems = async (
   }
 };
 
+const joinRichText = (prop: NotionRichText | undefined): string => {
+  if (!prop?.rich_text || !Array.isArray(prop.rich_text)) return "";
+  return prop.rich_text
+    .map((item) => item?.text?.content || "")
+    .join(" ")
+    .trim();
+};
+
 export const getDailyScripture = async (
   date?: Date
 ): Promise<DailyScripture | null> => {
   try {
     const client = getNotionClient();
     const config = getNotionConfig();
-    const targetDate = date || new Date();
+
+    // Use Moscow calendar day for the lookup so it matches the broadcast window.
+    const targetDate = formatMoscowDate(date);
 
     const response = await client.databases.query({
       database_id: config.dailyDistributionDatabase,
       filter: {
         property: "Дата",
-        date: { equals: targetDate.toISOString().split("T")[0] },
+        date: { equals: targetDate },
       },
     });
 
@@ -192,16 +202,21 @@ export const getDailyScripture = async (
 
     const page = response.results[0] as any;
     const dateProp = page.properties["Дата"] as NotionDate;
-    const textProp = page.properties["Текст"] as NotionRichText;
-    const referenceProp = page.properties["Ссылка"] as NotionRichText;
-    const translationProp = page.properties["Перевод"] as NotionRichText;
+    const dayNumberProp = page.properties["Номер дня"];
+    const oldTestamentProp = page.properties["Чтение Ветхого завета"] as NotionRichText;
+    const newTestamentProp = page.properties["Чтение Нового завета"] as NotionRichText;
+
+    const dayNumber =
+      dayNumberProp?.type === "number" && typeof dayNumberProp.number === "number"
+        ? dayNumberProp.number
+        : null;
 
     const scripture: DailyScripture = {
       id: page.id,
       date: new Date(dateProp?.date?.start || page.created_time),
-      text: textProp?.rich_text?.[0]?.text?.content || "",
-      reference: referenceProp?.rich_text?.[0]?.text?.content || "",
-      translation: translationProp?.rich_text?.[0]?.text?.content || "",
+      dayNumber,
+      oldTestament: joinRichText(oldTestamentProp),
+      newTestament: joinRichText(newTestamentProp),
     };
 
     logInfo("Daily scripture retrieved", { scriptureId: scripture.id });

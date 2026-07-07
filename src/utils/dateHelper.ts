@@ -75,3 +75,19 @@ export const formatDateForNotion = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
+
+/**
+ * Format date as YYYY-MM-DD in Europe/Moscow timezone.
+ * Used for Notion date filters where the "day" must match Moscow calendar day.
+ */
+export const formatMoscowDate = (date: Date = new Date()): string => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const pick = (type: string): string =>
+    parts.find((p) => p.type === type)?.value || "";
+  return `${pick("year")}-${pick("month")}-${pick("day")}`;
+};

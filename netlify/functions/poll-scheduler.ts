@@ -9,6 +9,7 @@ import {
 } from "../../src/commands/weeklyScheduleCommand";
 import { sendYouthCareReminderToAdmins } from "../../src/commands/youthCareReminderCommand";
 import { sendYouthReportReminderToAdmins } from "../../src/commands/youthReportReminderCommand";
+import { sendDailyScripture } from "../../src/commands/dailyScriptureCommand";
 import { getTelegramConfig } from "../../src/config/environment";
 import { getYouthEventsForDateRange } from "../../src/services/notionService";
 import {
@@ -19,6 +20,7 @@ import {
   shouldSendYouthReportFollowUpReminder,
   shouldSendYouthReportReminder,
   shouldSendWeeklySchedule,
+  shouldSendDailyScripture,
 } from "../../src/utils/pollScheduler";
 import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { logInfo, logWarn, logError } from "../../src/utils/logger";
@@ -117,6 +119,20 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
       if (!result.success) {
         logError("Failed to send admin weekly schedule", {
+          error: result.error,
+        });
+      }
+    }
+
+    if (shouldSendDailyScripture(now)) {
+      const result = await sendDailyScripture({
+        suppressDebugMessage: false,
+        forceDebug,
+        context: { source: "poll-scheduler" },
+      });
+
+      if (!result.success) {
+        logError("Failed to send daily scripture", {
           error: result.error,
         });
       }

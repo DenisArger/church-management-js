@@ -73,9 +73,9 @@ export interface CalendarItem {
 export interface DailyScripture {
   id: string;
   date: Date;
-  text: string;
-  reference: string;
-  translation: string;
+  dayNumber: number | null;
+  oldTestament: string;
+  newTestament: string;
 }
 
 export interface PrayerRecord {

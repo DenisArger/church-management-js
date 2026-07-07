@@ -54,10 +54,10 @@ export const getNotionClient = (): Client => {
 **База данных**: `NOTION_DAILY_DISTRIBUTION_DATABASE`
 
 **Поля**:
-- Дата (date)
-- Текст (rich_text)
-- Ссылка (rich_text)
-- Перевод (rich_text)
+- Дата (date) — фильтр по московской дате
+- Номер дня (number)
+- Чтение Ветхого завета (rich_text)
+- Чтение Нового завета (rich_text)
 
 ## Недельные молитвенные записи
 

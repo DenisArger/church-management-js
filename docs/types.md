@@ -70,9 +70,9 @@ interface CalendarItem {
 interface DailyScripture {
   id: string;
   date: Date;
-  text: string;
-  reference: string;
-  translation: string;
+  dayNumber: number | null;
+  oldTestament: string;
+  newTestament: string;
 }
 ```
 

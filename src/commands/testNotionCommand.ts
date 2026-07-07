@@ -86,7 +86,7 @@ const performNotionTests = async (): Promise<TestResult[]> => {
         test: "База данных ежедневного чтения",
         success: true,
         message: "✅ Успешно получено ежедневное чтение",
-        details: `Ссылка: ${scripture.reference}`,
+        details: `День ${scripture.dayNumber ?? "нет данных"}: Ветхий Завет — ${scripture.oldTestament || "нет данных"}, Новый Завет — ${scripture.newTestament || "нет данных"}`,
       });
     } else {
       results.push({
