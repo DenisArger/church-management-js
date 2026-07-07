@@ -145,27 +145,27 @@ describe("pollScheduler", () => {
   });
 
   describe("shouldSendDailyScripture", () => {
-    it("returns true at 11:15 Moscow within the 15-minute window", () => {
-      // 11:15 Moscow = 08:15 UTC
-      const now = new Date(Date.UTC(2025, 0, 1, 8, 15, 0, 0));
+    it("returns true at 11:40 Moscow within the 15-minute window", () => {
+      // 11:40 Moscow = 08:40 UTC
+      const now = new Date(Date.UTC(2025, 0, 1, 8, 40, 0, 0));
       expect(shouldSendDailyScripture(now)).toBe(true);
     });
 
-    it("returns true at 11:29 Moscow within the 15-minute window", () => {
-      // 11:29 Moscow = 08:29 UTC
-      const now = new Date(Date.UTC(2025, 0, 1, 8, 29, 0, 0));
+    it("returns true at 11:54 Moscow within the 15-minute window", () => {
+      // 11:54 Moscow = 08:54 UTC
+      const now = new Date(Date.UTC(2025, 0, 1, 8, 54, 0, 0));
       expect(shouldSendDailyScripture(now)).toBe(true);
     });
 
-    it("returns false before the window (11:14 Moscow)", () => {
-      // 11:14 Moscow = 08:14 UTC
-      const now = new Date(Date.UTC(2025, 0, 1, 8, 14, 0, 0));
+    it("returns false before the window (11:39 Moscow)", () => {
+      // 11:39 Moscow = 08:39 UTC
+      const now = new Date(Date.UTC(2025, 0, 1, 8, 39, 0, 0));
       expect(shouldSendDailyScripture(now)).toBe(false);
     });
 
-    it("returns false after the window (11:31 Moscow)", () => {
-      // 11:31 Moscow = 08:31 UTC
-      const now = new Date(Date.UTC(2025, 0, 1, 8, 31, 0, 0));
+    it("returns false after the window (11:56 Moscow)", () => {
+      // 11:56 Moscow = 08:56 UTC
+      const now = new Date(Date.UTC(2025, 0, 1, 8, 56, 0, 0));
       expect(shouldSendDailyScripture(now)).toBe(false);
     });
   });

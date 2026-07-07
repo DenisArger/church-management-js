@@ -267,7 +267,7 @@ export const shouldSendYouthReportFollowUpReminder = (
 export const shouldSendDailyScripture = (
   currentTime: Date = new Date(),
 ): boolean => {
-  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 15 })) {
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 40 })) {
     logInfo("Should send daily scripture now", {
       currentTime: currentTime.toISOString(),
     });
