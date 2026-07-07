@@ -44,7 +44,7 @@ const getMoscowDateParts = (date: Date) => {
 const isWithinMoscowWindow = (
   date: Date,
   target: { weekday: number; hour: number; minute: number },
-  windowMs: number = FIFTEEN_MINUTES_MS
+  windowMs: number = FIFTEEN_MINUTES_MS,
 ): boolean => {
   const parts = getMoscowDateParts(date);
   if (parts.weekday !== target.weekday) return false;
@@ -56,7 +56,7 @@ const isWithinMoscowWindow = (
     target.hour,
     target.minute,
     0,
-    0
+    0,
   );
   const diff = parts.moscowMs - targetMs;
   return diff >= 0 && diff < windowMs;
@@ -65,7 +65,7 @@ const isWithinMoscowWindow = (
 const isWithinMoscowTimeWindow = (
   date: Date,
   target: { hour: number; minute: number },
-  windowMs: number = FIFTEEN_MINUTES_MS
+  windowMs: number = FIFTEEN_MINUTES_MS,
 ): boolean => {
   const parts = getMoscowDateParts(date);
   const targetMs = Date.UTC(
@@ -75,7 +75,7 @@ const isWithinMoscowTimeWindow = (
     target.hour,
     target.minute,
     0,
-    0
+    0,
   );
   const diff = parts.moscowMs - targetMs;
   return diff >= 0 && diff < windowMs;
@@ -83,7 +83,9 @@ const isWithinMoscowTimeWindow = (
 
 const isLastDayOfMoscowMonth = (date: Date): boolean => {
   const parts = getMoscowDateParts(date);
-  const lastDay = new Date(Date.UTC(parts.year, parts.month + 1, 0)).getUTCDate();
+  const lastDay = new Date(
+    Date.UTC(parts.year, parts.month + 1, 0),
+  ).getUTCDate();
   return parts.day === lastDay;
 };
 
@@ -92,17 +94,17 @@ const isLastDayOfMoscowMonth = (date: Date): boolean => {
  */
 export const calculatePollSendTime = (eventDate: Date): Date => {
   const eventTime = new Date(eventDate);
-  
+
   // Calculate exactly 24 hours before event, keeping the same time
   const sendTime = new Date(eventTime);
   sendTime.setHours(sendTime.getHours() - 24);
-  
+
   logInfo("Calculated poll send time", {
     eventDate: eventDate.toISOString(),
     calculatedSendTime: sendTime.toISOString(),
     hoursBeforeEvent: 24,
   });
-  
+
   return sendTime;
 };
 
@@ -112,7 +114,7 @@ export const calculatePollSendTime = (eventDate: Date): Date => {
  */
 export const shouldSendPoll = (
   eventDate: Date,
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   // Check that we haven't passed the event
   if (eventDate.getTime() <= currentTime.getTime()) {
@@ -122,12 +124,12 @@ export const shouldSendPoll = (
     });
     return false;
   }
-  
+
   const sendTime = calculatePollSendTime(eventDate);
-  
+
   // Check if current time is at or past the send time, but not more than 15 minutes past
   const timeDiff = currentTime.getTime() - sendTime.getTime();
-  
+
   // Allow sending if we're within 15 minutes after the calculated send time
   if (timeDiff >= 0 && timeDiff < FIFTEEN_MINUTES_MS) {
     logInfo("Should send poll now", {
@@ -138,7 +140,7 @@ export const shouldSendPoll = (
     });
     return true;
   }
-  
+
   // Too early or too late
   if (timeDiff < 0) {
     logInfo("Too early to send poll", {
@@ -155,7 +157,7 @@ export const shouldSendPoll = (
       minutesSinceSend: Math.round(timeDiff / (60 * 1000)),
     });
   }
-  
+
   return false;
 };
 
@@ -165,7 +167,7 @@ export const shouldSendPoll = (
  */
 export const shouldSendNotification = (
   eventDate: Date,
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   // Notification should be sent 3 hours before poll send time.
   // Poll send time is 24h before event, so notification time is 27h before event.
@@ -195,7 +197,7 @@ export const shouldSendNotification = (
  * Target time: Monday 09:00 (Europe/Moscow), 15-minute window after target.
  */
 export const shouldSendWeeklySchedule = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   if (isWithinMoscowWindow(currentTime, { weekday: 1, hour: 9, minute: 0 })) {
     logInfo("Should send weekly schedule now", {
@@ -211,7 +213,7 @@ export const shouldSendWeeklySchedule = (
  * Target time: Sunday 18:00 (Europe/Moscow), 15-minute window after target.
  */
 export const shouldSendAdminWeeklySchedule = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   if (isWithinMoscowWindow(currentTime, { weekday: 0, hour: 18, minute: 0 })) {
     logInfo("Should send admin weekly schedule now", {
@@ -227,7 +229,7 @@ export const shouldSendAdminWeeklySchedule = (
  * Target time: last day of month at 11:00 (Europe/Moscow), 15-minute window after target.
  */
 export const shouldSendYouthReportReminder = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   if (!isLastDayOfMoscowMonth(currentTime)) return false;
   if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 0 })) {
@@ -244,7 +246,7 @@ export const shouldSendYouthReportReminder = (
  * Target dates: 1st, 3rd, 5th day of month at 12:25 (Europe/Moscow), 15-minute window.
  */
 export const shouldSendYouthReportFollowUpReminder = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   const parts = getMoscowDateParts(currentTime);
   if (parts.day !== 1 && parts.day !== 3 && parts.day !== 5) return false;
@@ -259,12 +261,13 @@ export const shouldSendYouthReportFollowUpReminder = (
 
 /**
  * Check if daily scripture reading should be sent to the group.
- * Target time: 09:00 (Europe/Moscow) every day, 15-minute window after target.
+ * Target time: 11:30 (Europe/Moscow) every day (temporarily), 15-minute window after target.
  */
+// TODO: время временно перенесено на 11:15 МСК (было 09:30) — вернуть обратно.
 export const shouldSendDailyScripture = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
-  if (isWithinMoscowTimeWindow(currentTime, { hour: 9, minute: 30 })) {
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 15 })) {
     logInfo("Should send daily scripture now", {
       currentTime: currentTime.toISOString(),
     });
@@ -278,7 +281,7 @@ export const shouldSendDailyScripture = (
  * Target time: 12th and 20th of month at 17:30 (Europe/Moscow), 15-minute window after target.
  */
 export const shouldSendYouthCareReminder = (
-  currentTime: Date = new Date()
+  currentTime: Date = new Date(),
 ): boolean => {
   const parts = getMoscowDateParts(currentTime);
   if (parts.day !== 12 && parts.day !== 20) return false;
@@ -301,7 +304,9 @@ export const isEventMissing = (event: { date: Date } | null): boolean => {
 /**
  * Check if event has theme
  */
-export const hasTheme = (event: { theme?: string; title?: string } | null): boolean => {
+export const hasTheme = (
+  event: { theme?: string; title?: string } | null,
+): boolean => {
   if (!event) return false;
   const theme = event.theme?.trim();
   const title = event.title?.trim();
@@ -314,9 +319,10 @@ export const hasTheme = (event: { theme?: string; title?: string } | null): bool
 export const hasTime = (event: { date: Date } | null): boolean => {
   if (!event) return false;
   // Check if date has time component (not just 00:00:00 UTC)
-  const isDateOnly = event.date.getUTCHours() === 0 && 
-                     event.date.getUTCMinutes() === 0 && 
-                     event.date.getUTCSeconds() === 0 &&
-                     event.date.getUTCMilliseconds() === 0;
+  const isDateOnly =
+    event.date.getUTCHours() === 0 &&
+    event.date.getUTCMinutes() === 0 &&
+    event.date.getUTCSeconds() === 0 &&
+    event.date.getUTCMilliseconds() === 0;
   return !isDateOnly;
 };
