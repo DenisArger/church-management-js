@@ -6,6 +6,7 @@ import {
 } from "../services/telegramService";
 import { getDailyScripture } from "../services/notionService";
 import { getAppConfig, getTelegramConfig } from "../config/environment";
+import { formatMoscowDate } from "../utils/dateHelper";
 import { logInfo, logWarn, logError } from "../utils/logger";
 
 type DailyScriptureSendOptions = {
@@ -14,21 +15,71 @@ type DailyScriptureSendOptions = {
   context?: Record<string, unknown>;
 };
 
-const formatDailyScriptureMessage = (scripture: {
-  dayNumber: number | null;
-  oldTestament: string;
-  newTestament: string;
-}): string => {
+const INTROS = [
+  "📖 <b>День</b> {day}. Чтение Библии на сегодня:",
+  "📜 <b>День</b> {day} — время для чтения Слова:",
+  "✝️ <b>День</b> {day}. Наша порция Писания:",
+  "🕊 <b>День</b> {day}. Что читаем сегодня:",
+  "📖 <b>День</b> {day}. Откроем Слово вместе:",
+  "🌅 <b>День</b> {day}. Утреннее чтение Писания:",
+  "🙏 <b>День</b> {day}. Пусть Библия говорит сегодня:",
+  "📖 <b>День</b> {day}. Размышляем над Писанием:",
+  "✨ <b>День</b> {day}. Свет Слова на сегодня:",
+  "🔥 <b>День</b> {day}. Горящее сердце от чтения:",
+];
+
+const CLOSINGS = [
+  "Благословений и хорошего дня!🙏",
+  "Пусть Слово укрепит вас сегодня!🙏",
+  "Хорошего дня и мира вам!✝️",
+  "Да будет этот день наполнен благодатью!🙏",
+  "Мира вам и радости во Христе!🙏",
+  "Пусть Господь благословит ваш день!✝️",
+  "С благодарностью за Его Слово!🙏",
+  "Да сопровождает вас Божья милость!🕊",
+  "Хорошего чтения и светлого дня!🌅",
+  "Пребывайте в любви и истине!✝️",
+];
+
+// Deterministic seed from the Moscow calendar day, so the same day always
+// produces the same variant (stable across the 15-minute scheduler window).
+const dayHash = (date: Date): number => {
+  const s = formatMoscowDate(date);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
+  }
+  return h;
+};
+
+export const formatDailyScriptureMessage = (
+  scripture: {
+    dayNumber: number | null;
+    oldTestament: string;
+    newTestament: string;
+  },
+  date: Date = new Date()
+): string => {
+  const seed = dayHash(date);
   const dayLabel = scripture.dayNumber !== null ? String(scripture.dayNumber) : "нет данных";
   const oldLabel = scripture.oldTestament || "нет данных";
   const newLabel = scripture.newTestament || "нет данных";
 
-  return (
-    `📖 <b>День</b> ${dayLabel}. Чтение Библии на сегодня:\n\n` +
-    `📜 <b>Ветхий Завет:</b> ${oldLabel}\n` +
-    `📜 <b>Новый Завет:</b> ${newLabel}\n\n` +
-    `Благословений и хорошего дня!🙏`
-  );
+  const intro = INTROS[seed % INTROS.length].replace("{day}", dayLabel);
+
+  const otBlock = `📜 <b>Ветхий Завет:</b> ${oldLabel}`;
+  const ntBlock = `📜 <b>Новый Завет:</b> ${newLabel}`;
+  // Rotate the order of the two testament blocks by day.
+  const body = seed % 2 === 0 ? `${otBlock}\n${ntBlock}` : `${ntBlock}\n${otBlock}`;
+
+  const progress =
+    scripture.dayNumber !== null
+      ? `\n📍 Это ${dayLabel}-й день нашего плана чтения.`
+      : "";
+
+  const closing = CLOSINGS[(seed >> 4) % CLOSINGS.length];
+
+  return `${intro}\n\n${body}${progress}\n\n${closing}`;
 };
 
 export const sendDailyScripture = async (
@@ -51,7 +102,7 @@ export const sendDailyScripture = async (
       return { success: true, message: "No daily scripture for today (DEBUG)" };
     }
 
-    const message = `🧪 <b>DEBUG</b>\n\n${formatDailyScriptureMessage(scripture)}`;
+    const message = `🧪 <b>DEBUG</b>\n\n${formatDailyScriptureMessage(scripture, new Date())}`;
     const debugOptions: Record<string, unknown> = { parse_mode: "HTML" };
     if (debugConfig.topicId) {
       debugOptions.message_thread_id = debugConfig.topicId;
@@ -98,7 +149,7 @@ export const sendDailyScripture = async (
     return { success: true, message: "No daily scripture for today" };
   }
 
-  const message = formatDailyScriptureMessage(scripture);
+  const message = formatDailyScriptureMessage(scripture, new Date());
   const messageOptions: Record<string, unknown> = { parse_mode: "HTML" };
   if (!isNaN(topicId)) {
     messageOptions.message_thread_id = topicId;

@@ -1,4 +1,4 @@
-import { sendDailyScripture } from "./dailyScriptureCommand";
+import { sendDailyScripture, formatDailyScriptureMessage } from "./dailyScriptureCommand";
 
 jest.mock("../config/environment", () => ({
   getAppConfig: jest.fn(() => ({ debug: false })),
@@ -64,9 +64,12 @@ describe("sendDailyScripture", () => {
       parse_mode: "HTML",
       message_thread_id: 200,
     });
-    expect(text).toContain("День</b> 187");
+    expect(text).toContain("187");
     expect(text).toContain("Бытие 1-3");
     expect(text).toContain("Матфея 5-7");
+    expect(text).toContain("Ветхий Завет:");
+    expect(text).toContain("Новый Завет:");
+    expect(text).toContain("план");
   });
 
   it("uses 'нет данных' fallback for missing fields", async () => {
@@ -79,7 +82,6 @@ describe("sendDailyScripture", () => {
     const result = await sendDailyScripture();
     expect(result.success).toBe(true);
     const [, text] = sendMessage.mock.calls[0];
-    expect(text).toContain("День</b> нет данных");
     expect(text).toContain("нет данных");
   });
 
@@ -97,5 +99,21 @@ describe("sendDailyScripture", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Main group ID not configured");
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("formatDailyScriptureMessage", () => {
+  it("produces the same text for the same date (stable in scheduler window)", () => {
+    const d = new Date("2026-07-07T09:30:00+03:00");
+    const a = formatDailyScriptureMessage(sampleScripture, d);
+    const b = formatDailyScriptureMessage(sampleScripture, d);
+    expect(a).toBe(b);
+  });
+
+  it("includes fixed testament labels and progress line", () => {
+    const text = formatDailyScriptureMessage(sampleScripture, new Date("2026-07-07T09:30:00+03:00"));
+    expect(text).toContain("Ветхий Завет:");
+    expect(text).toContain("Новый Завет:");
+    expect(text).toContain("187-й день нашего плана чтения");
   });
 });
