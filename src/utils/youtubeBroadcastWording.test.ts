@@ -10,7 +10,8 @@ describe("youtubeBroadcastWording", () => {
       const caption = composeYouTubeBroadcastCaption(
         "abc123XYZ",
         "Утреннее служение",
-        "2026-07-12T07:00:00Z"
+        "2026-07-12T07:00:00Z",
+        0
       );
       expect(caption).toContain("Наступил этот день воскресенья\\!");
       expect(caption).toContain("Предавай все дела забвенью\\!");
@@ -23,7 +24,8 @@ describe("youtubeBroadcastWording", () => {
       const caption = composeYouTubeBroadcastCaption(
         "abc123XYZ",
         "Вечернее служение",
-        "2026-07-13T07:00:00Z"
+        "2026-07-13T07:00:00Z",
+        0
       );
       expect(caption).toContain("*Вечернее служение*");
       expect(caption).toContain("[Трансляция в 10:00](https://youtu.be/abc123XYZ)");
@@ -34,9 +36,28 @@ describe("youtubeBroadcastWording", () => {
       const caption = composeYouTubeBroadcastCaption(
         "abc123XYZ",
         "Утреннее служение! & Завтрак",
-        "2026-07-13T07:00:00Z"
+        "2026-07-13T07:00:00Z",
+        0
       );
       expect(caption).toContain("*Утреннее служение\\! & Завтрак*");
+    });
+
+    it("rotates Sunday variants and link prefixes", () => {
+      const a = composeYouTubeBroadcastCaption(
+        "abc",
+        "Title",
+        "2026-07-12T07:00:00Z",
+        0
+      );
+      const b = composeYouTubeBroadcastCaption(
+        "def",
+        "Title",
+        "2026-07-12T07:00:00Z",
+        2
+      );
+      expect(a).not.toBe(b);
+      expect(a).toContain("[Трансляция в ");
+      expect(b).toMatch(/\[(Смотрите в|Эфир в|Начало в) /);
     });
   });
 

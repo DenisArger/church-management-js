@@ -27,6 +27,13 @@ jest.mock("../utils/logger", () => ({
   logError: jest.fn(),
 }));
 
+jest.mock("../utils/youtubeBroadcastWording", () => ({
+  ...jest.requireActual("../utils/youtubeBroadcastWording"),
+  composeYouTubeBroadcastCaption: jest.fn().mockReturnValue("Наступил этот день воскресенья\\!\nПредавай все дела забвенью\\!\nПодключись, чтобы услышать слово\\!\n\n[Трансляция в 10:00](https://youtu.be/abc123XYZ)"),
+  getBroadcastPhotoId: jest.fn().mockReturnValue("photo-id"),
+  buildWatchButton: jest.fn().mockReturnValue({ inline_keyboard: [] }),
+}));
+
 describe("youtubeBroadcastMailingCommand", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -47,7 +54,7 @@ describe("youtubeBroadcastMailingCommand", () => {
     expect(result.success).toBe(true);
     expect(sendMessage).toHaveBeenCalledWith(
       -100200,
-      expect.stringContaining("Наступил этот день воскресенья\\!"),
+      "Наступил этот день воскресенья\\!\nПредавай все дела забвенью\\!\nПодключись, чтобы услышать слово\\!\n\n[Трансляция в 10:00](https://youtu.be/abc123XYZ)",
       expect.objectContaining({
         parse_mode: "MarkdownV2",
         message_thread_id: 50,
@@ -55,26 +62,6 @@ describe("youtubeBroadcastMailingCommand", () => {
           inline_keyboard: expect.any(Array),
         }),
       })
-    );
-  });
-
-  it("sends general wording for non-Sunday broadcast", async () => {
-    const sendMessage = jest.requireMock<typeof import("../services/telegramService")>(
-      "../services/telegramService"
-    ).sendMessage as jest.Mock;
-
-    const result = await runBroadcastMailing(
-      "abc123XYZ",
-      "Вечернее служение",
-      "public",
-      "2026-07-13T07:00:00Z"
-    );
-
-    expect(result.success).toBe(true);
-    expect(sendMessage).toHaveBeenCalledWith(
-      -100200,
-      expect.stringContaining("*Вечернее служение*"),
-      expect.any(Object)
     );
   });
 
@@ -94,9 +81,9 @@ describe("youtubeBroadcastMailingCommand", () => {
     expect(sendPhotoWithOptions).toHaveBeenNthCalledWith(
       1,
       -100300,
-      expect.any(String),
+      "photo-id",
       expect.objectContaining({
-        caption: expect.stringContaining("Наступил этот день воскресенья\\!"),
+        caption: "Наступил этот день воскресенья\\!\nПредавай все дела забвенью\\!\nПодключись, чтобы услышать слово\\!\n\n[Трансляция в 10:00](https://youtu.be/abc123XYZ)",
         parse_mode: "MarkdownV2",
         message_thread_id: 60,
       })
@@ -104,9 +91,9 @@ describe("youtubeBroadcastMailingCommand", () => {
     expect(sendPhotoWithOptions).toHaveBeenNthCalledWith(
       2,
       -100400,
-      expect.any(String),
+      "photo-id",
       expect.objectContaining({
-        caption: expect.stringContaining("Наступил этот день воскресенья\\!"),
+        caption: "Наступил этот день воскресенья\\!\nПредавай все дела забвенью\\!\nПодключись, чтобы услышать слово\\!\n\n[Трансляция в 10:00](https://youtu.be/abc123XYZ)",
         parse_mode: "MarkdownV2",
       })
     );
