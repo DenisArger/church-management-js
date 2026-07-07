@@ -63,3 +63,30 @@ create table if not exists allowed_users (
   added_at timestamptz not null default now()
 );
 
+-- 6. youtube_broadcast_mailings: delayed broadcast mailings
+create table if not exists youtube_broadcast_mailings (
+  id uuid primary key default gen_random_uuid(),
+  youtube_id text not null,
+  title text not null,
+  privacy_status text not null,
+  scheduled_start_time text not null,
+  scheduled_for timestamptz not null,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_youtube_broadcast_mailings_scheduled_for on youtube_broadcast_mailings(scheduled_for);
+create index if not exists idx_youtube_broadcast_mailings_sent_at on youtube_broadcast_mailings(sent_at) where sent_at is null;
+
+-- 7. telegram_post_deletions: delayed message deletions
+create table if not exists telegram_post_deletions (
+  id uuid primary key default gen_random_uuid(),
+  chat_id bigint not null,
+  message_id bigint not null,
+  delete_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_telegram_post_deletions_delete_at on telegram_post_deletions(delete_at);
+

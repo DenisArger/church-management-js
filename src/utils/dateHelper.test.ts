@@ -6,6 +6,8 @@ import {
   isToday,
   isThisWeek,
   formatDateForNotion,
+  isSunday,
+  formatMinskTime,
 } from "./dateHelper";
 
 describe("dateHelper", () => {
@@ -76,6 +78,28 @@ describe("dateHelper", () => {
     it("pads month and day", () => {
       const d = new Date(2025, 8, 9);
       expect(formatDateForNotion(d)).toBe("2025-09-09");
+    });
+  });
+
+  describe("isSunday", () => {
+    it("returns true for Sunday", () => {
+      const sunday = new Date("2026-07-12T12:00:00Z");
+      expect(isSunday(sunday)).toBe(true);
+    });
+    it("returns false for Monday", () => {
+      const monday = new Date("2026-07-13T12:00:00Z");
+      expect(isSunday(monday)).toBe(false);
+    });
+  });
+
+  describe("formatMinskTime", () => {
+    it("formats time in Europe/Minsk timezone", () => {
+      const d = new Date("2026-07-13T04:00:00Z");
+      expect(formatMinskTime(d)).toBe("07:00");
+    });
+    it("handles noon correctly", () => {
+      const d = new Date("2026-07-13T11:00:00Z");
+      expect(formatMinskTime(d)).toBe("14:00");
     });
   });
 });

@@ -35,6 +35,10 @@ export const getTelegramConfig = () => {
       "TELEGRAM_MAIN_GROUP_BROADCAST_TOPIC_ID"
     ),
     mainChannelId: getAppConfigValue("TELEGRAM_MAIN_CHANNEL_ID"),
+    technoGroupId: getAppConfigValue("TELEGRAM_TECHNO_GROUP_ID"),
+    technoGroupBroadcastTopicId: getAppConfigValue(
+      "TELEGRAM_TECHNO_GROUP_BROADCAST_TOPIC_ID"
+    ),
     announcementsTopicId: getAppConfigValue("TELEGRAM_ANNOUNCEMENTS_TOPIC_ID"),
     readBibleTopicId: getAppConfigValue("TELEGRAM_TOPIC_READ_BIBLE_ID"),
     youthGroupId: getAppConfigValue("TELEGRAM_YOUTH_GROUP_ID"),

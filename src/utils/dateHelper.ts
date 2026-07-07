@@ -91,3 +91,14 @@ export const formatMoscowDate = (date: Date = new Date()): string => {
     parts.find((p) => p.type === type)?.value || "";
   return `${pick("year")}-${pick("month")}-${pick("day")}`;
 };
+
+export const isSunday = (date: Date): boolean => date.getUTCDay() === 0;
+
+export const formatMinskTime = (date: Date): string => {
+  return date.toLocaleTimeString("en-US", {
+    timeZone: "Europe/Minsk",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};

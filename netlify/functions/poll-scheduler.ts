@@ -23,6 +23,9 @@ import {
   shouldSendDailyScripture,
 } from "../../src/utils/pollScheduler";
 import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
+import { deleteProcessedPostDeletions, getPendingBroadcastMailings, getPendingPostDeletions, markBroadcastMailingSent } from "../../src/services/youtubeBroadcastService";
+import { runBroadcastMailing } from "../../src/commands/youtubeBroadcastMailingCommand";
+import { deleteTelegramMessage } from "../../src/services/telegramService";
 import { logInfo, logWarn, logError } from "../../src/utils/logger";
 
 /**
@@ -192,6 +195,72 @@ export const handler: Handler = async (event: HandlerEvent) => {
       }
     }
 
+    let mailingsSent = 0;
+    let mailingsSkipped = 0;
+    let postDeletionsExecuted = 0;
+    let postDeletionsSkipped = 0;
+    const processedDeletionIds: string[] = [];
+
+    const pendingMailings = await getPendingBroadcastMailings();
+    for (const mailing of pendingMailings) {
+      logInfo("Processing pending broadcast mailing", {
+        mailingId: mailing.id,
+        youtubeId: mailing.youtubeId,
+        title: mailing.title,
+      });
+
+      const result = await runBroadcastMailing(
+        mailing.youtubeId,
+        mailing.title,
+        mailing.privacyStatus,
+        mailing.scheduledStartTime
+      );
+
+      if (result.success) {
+        await markBroadcastMailingSent(mailing.id);
+        mailingsSent++;
+      } else {
+        logError("Failed to process broadcast mailing", {
+          mailingId: mailing.id,
+          error: result.error,
+        });
+        mailingsSkipped++;
+      }
+    }
+
+    const pendingDeletions = await getPendingPostDeletions();
+    for (const deletion of pendingDeletions) {
+      logInfo("Processing pending post deletion", {
+        chatId: deletion.chatId,
+        messageId: deletion.messageId,
+      });
+
+      const result = await deleteTelegramMessage(deletion.chatId, deletion.messageId);
+
+      if (result.success) {
+        processedDeletionIds.push(deletion.id);
+        postDeletionsExecuted++;
+      } else {
+        logError("Failed to delete scheduled post", {
+          chatId: deletion.chatId,
+          messageId: deletion.messageId,
+          error: result.error,
+        });
+        postDeletionsSkipped++;
+      }
+    }
+
+    if (processedDeletionIds.length > 0) {
+      await deleteProcessedPostDeletions(processedDeletionIds);
+    }
+
+    logInfo("Broadcast mailing and post deletion summary", {
+      mailingsSent,
+      mailingsSkipped,
+      postDeletionsExecuted,
+      postDeletionsSkipped,
+    });
+
     const endDate = new Date(now);
     endDate.setHours(endDate.getHours() + 48);
 
@@ -203,23 +272,12 @@ export const handler: Handler = async (event: HandlerEvent) => {
     // Get youth events in the range (includes "Молодежное" and "МОСТ")
     const events = await getYouthEventsForDateRange(now, endDate);
 
-    if (events.length === 0) {
-      logInfo("No events found in range, skipping scheduler work");
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: true,
-          message: "No events found requiring polls or notifications",
-        }),
-      };
-    }
-
-    logInfo("Found events to check", { count: events.length });
-
     let pollsSent = 0;
     let pollsSkipped = 0;
     let notificationsSent = 0;
     let notificationsSkipped = 0;
+
+    logInfo("Found events to check", { count: events.length });
 
     for (const eventItem of events) {
       if (shouldSendPoll(eventItem.date, now)) {

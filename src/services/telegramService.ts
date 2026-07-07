@@ -202,6 +202,31 @@ export const sendPhoto = async (
   }
 };
 
+export const sendPhotoWithOptions = async (
+  chatId: number,
+  photo: string,
+  options?: Record<string, unknown>
+): Promise<CommandResult> => {
+  try {
+    const bot = getTelegramBot();
+    const message = await bot.sendPhoto(chatId, photo, options);
+
+    logInfo(`Photo sent to ${chatId}`, { messageId: message.message_id });
+
+    return {
+      success: true,
+      message: "Photo sent successfully",
+      data: { messageId: message.message_id },
+    };
+  } catch (error) {
+    logError("Error sending photo with options", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};
+
 export const answerCallbackQuery = async (
   callbackQueryId: string,
   text?: string,
