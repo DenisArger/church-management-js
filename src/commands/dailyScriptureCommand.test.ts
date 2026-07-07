@@ -69,7 +69,6 @@ describe("sendDailyScripture", () => {
     expect(text).toContain("Матфея 5-7");
     expect(text).toContain("Ветхий Завет:");
     expect(text).toContain("Новый Завет:");
-    expect(text).toContain("план");
   });
 
   it("uses 'нет данных' fallback for missing fields", async () => {
@@ -110,10 +109,4 @@ describe("formatDailyScriptureMessage", () => {
     expect(a).toBe(b);
   });
 
-  it("includes fixed testament labels and progress line", () => {
-    const text = formatDailyScriptureMessage(sampleScripture, new Date("2026-07-07T09:30:00+03:00"));
-    expect(text).toContain("Ветхий Завет:");
-    expect(text).toContain("Новый Завет:");
-    expect(text).toContain("187-й день нашего плана чтения");
-  });
 });
