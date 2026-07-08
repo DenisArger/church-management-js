@@ -109,4 +109,11 @@ describe("formatDailyScriptureMessage", () => {
     expect(a).toBe(b);
   });
 
+  it("always lists New Testament before Old Testament", () => {
+    const text = formatDailyScriptureMessage(sampleScripture, new Date("2026-07-07T09:30:00+03:00"));
+    const ntIndex = text.indexOf("Новый Завет:");
+    const otIndex = text.indexOf("Ветхий Завет:");
+    expect(ntIndex).toBeGreaterThanOrEqual(0);
+    expect(otIndex).toBeGreaterThan(ntIndex);
+  });
 });

@@ -18,27 +18,27 @@ type DailyScriptureSendOptions = {
 const INTROS = [
   "📖 <b>День</b> {day}. Чтение Библии на сегодня:",
   "📜 <b>День</b> {day} — время для чтения Слова:",
-  "📖 <b>День</b> {day}. Чтение Писания на сегодня:",
-  "📖 <b>День</b> {day}. Читаем сегодня:",
+  "✝️ <b>День</b> {day}. Наша порция Писания:",
+  "🕊 <b>День</b> {day}. Что читаем сегодня:",
   "📖 <b>День</b> {day}. Откроем Слово вместе:",
   "🌅 <b>День</b> {day}. Утреннее чтение Писания:",
   "🙏 <b>День</b> {day}. Пусть Библия говорит сегодня:",
   "📖 <b>День</b> {day}. Размышляем над Писанием:",
-  "✨ <b>День</b> {day}. Слово Божье на сегодня:",
-  "🔥 <b>День</b> {day}. Сегодняшнее чтения:",
+  "✨ <b>День</b> {day}. Свет Слова на сегодня:",
+  "🔥 <b>День</b> {day}. Горящее сердце от чтения:",
 ];
 
 const CLOSINGS = [
   "Благословений и хорошего дня!🙏",
   "Пусть Слово укрепит вас сегодня!🙏",
   "Хорошего дня и мира вам!✝️",
-  "Да будет этот день наполнен благодатью и радостью!🙏",
+  "Да будет этот день наполнен благодатью!🙏",
   "Мира вам и радости во Христе!🙏",
-  "Пусть Господь благословит ваш день!🙏",
+  "Пусть Господь благословит ваш день!✝️",
   "С благодарностью за Его Слово!🙏",
-  "Да сопровождает вас Божья милость!🙏",
-  "Хорошего чтения и благословенного дня!🌅",
-  "Пребывайте в любви и истине!🙏",
+  "Да сопровождает вас Божья милость!🕊",
+  "Хорошего чтения и светлого дня!🌅",
+  "Пребывайте в любви и истине!✝️",
 ];
 
 // Deterministic seed from the Moscow calendar day, so the same day always
@@ -58,11 +58,10 @@ export const formatDailyScriptureMessage = (
     oldTestament: string;
     newTestament: string;
   },
-  date: Date = new Date(),
+  date: Date = new Date()
 ): string => {
   const seed = dayHash(date);
-  const dayLabel =
-    scripture.dayNumber !== null ? String(scripture.dayNumber) : "нет данных";
+  const dayLabel = scripture.dayNumber !== null ? String(scripture.dayNumber) : "нет данных";
   const oldLabel = scripture.oldTestament || "нет данных";
   const newLabel = scripture.newTestament || "нет данных";
 
@@ -70,9 +69,8 @@ export const formatDailyScriptureMessage = (
 
   const otBlock = `📜 <b>Ветхий Завет:</b> ${oldLabel}`;
   const ntBlock = `📜 <b>Новый Завет:</b> ${newLabel}`;
-  // Rotate the order of the two testament blocks by day.
-  const body =
-    seed % 2 === 0 ? `${otBlock}\n${ntBlock}` : `${ntBlock}\n${otBlock}`;
+  // Новый Завет всегда первым, затем Ветхий Завет.
+  const body = `${ntBlock}\n${otBlock}`;
 
   const closing = CLOSINGS[(seed >> 4) % CLOSINGS.length];
 
@@ -80,7 +78,7 @@ export const formatDailyScriptureMessage = (
 };
 
 export const sendDailyScripture = async (
-  options?: DailyScriptureSendOptions,
+  options?: DailyScriptureSendOptions
 ): Promise<CommandResult> => {
   const appConfig = getAppConfig();
   const isDebug = options?.forceDebug ? true : appConfig.debug;
@@ -114,7 +112,7 @@ export const sendDailyScripture = async (
       debugConfig.bot,
       debugConfig.chatId,
       message,
-      debugOptions,
+      debugOptions
     );
   }
 
