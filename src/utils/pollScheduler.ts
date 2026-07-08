@@ -261,13 +261,13 @@ export const shouldSendYouthReportFollowUpReminder = (
 
 /**
  * Check if daily scripture reading should be sent to the group.
- * Target time: 11:30 (Europe/Moscow) every day (temporarily), 15-minute window after target.
+ * Target time: 09:00 (Europe/Moscow) every day, 15-minute window after target.
  */
 // TODO: время временно перенесено на 11:15 МСК (было 09:30) — вернуть обратно.
 export const shouldSendDailyScripture = (
   currentTime: Date = new Date(),
 ): boolean => {
-  if (isWithinMoscowTimeWindow(currentTime, { hour: 11, minute: 40 })) {
+  if (isWithinMoscowTimeWindow(currentTime, { hour: 9, minute: 0 })) {
     logInfo("Should send daily scripture now", {
       currentTime: currentTime.toISOString(),
     });
