@@ -268,6 +268,14 @@ export const handleMessage = async (
   ) {
     // Handle regular text input for prayer form
     return await executeAddPrayerCommand(userId, chatId, [text]);
+  } else {
+    logInfo("Prayer text-input routing skipped", {
+      userId,
+      isCommand,
+      chatType,
+      textPreview: bodyText?.substring(0, 30),
+      hasPrayerState: await hasActivePrayerState(userId),
+    });
   }
 
   // Check if user is in youth report form filling process
