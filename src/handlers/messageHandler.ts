@@ -241,7 +241,6 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    chatType === "private" &&
     (await hasActiveState(userId))
   ) {
     // Handle regular text input for Sunday service form
@@ -252,7 +251,6 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    chatType === "private" &&
     (await hasActiveScheduleState(userId))
   ) {
     // Handle regular text input for schedule form
@@ -263,7 +261,6 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    chatType === "private" &&
     (await hasActivePrayerState(userId))
   ) {
     // Handle regular text input for prayer form
@@ -282,7 +279,6 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    chatType === "private" &&
     (await hasActiveYouthReportState(userId))
   ) {
     // Handle regular text input for youth report form

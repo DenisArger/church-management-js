@@ -329,4 +329,27 @@ describe("messageHandler handleUpdate", () => {
     expect(safeRepublishBroadcastMessage).toHaveBeenCalled();
     expect(deleteTelegramMessage).not.toHaveBeenCalledWith(-10012345, 203);
   });
+
+  it("routes prayer text input in supergroup when active state exists", async () => {
+    isUserAuthorized.mockReturnValue(true);
+    const hasActivePrayerState = jest.requireMock<typeof import("../utils/prayerState")>("../utils/prayerState").hasActivePrayerState as jest.Mock;
+    hasActivePrayerState.mockResolvedValueOnce(true);
+    const executeAddPrayerCommand = jest.requireMock<typeof import("../commands/addPrayerCommand")>("../commands/addPrayerCommand").executeAddPrayerCommand as jest.Mock;
+    executeAddPrayerCommand.mockResolvedValueOnce({ success: true });
+
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111, first_name: "U", last_name: "N" },
+        chat: { id: 222, type: "supergroup" },
+        text: "тест   ",
+        date: 1,
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
+    expect(executeAddPrayerCommand).toHaveBeenCalledWith(111, 222, ["тест   "]);
+  });
 });
