@@ -132,10 +132,10 @@ export const handlePrayerCallback = async (
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         logError("Error recovering state", error);
-        return {
-          success: false,
-          error: `Не удалось восстановить сессию: ${detail}`,
-        };
+        return await sendMessage(
+          chatId,
+          `❌ Не удалось восстановить сессию: ${detail}`
+        );
       }
       }
       
@@ -171,10 +171,10 @@ export const handlePrayerCallback = async (
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     logError("Error handling prayer callback", error);
-    return {
-      success: false,
-      error: `Произошла ошибка при обработке запроса: ${detail}`,
-    };
+    return await sendMessage(
+      chatId,
+      `❌ Ошибка при обработке запроса: ${detail}`
+    );
   }
 };
 
@@ -230,10 +230,10 @@ const handleWeekSelection = async (
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     logError("Error getting prayer records", error);
-    return {
-      success: false,
-      error: `Произошла ошибка при получении списка людей: ${detail}`,
-    };
+    return await sendMessage(
+      chatId,
+      `❌ Ошибка при получении списка людей: ${detail}`
+    );
   }
 };
 

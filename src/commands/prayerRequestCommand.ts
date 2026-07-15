@@ -211,11 +211,9 @@ export const executeAllPrayersCommand = async (
 
     return result;
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logWarn("Error in all prayers command", error);
-    return {
-      success: false,
-      error: "Произошла ошибка при получении молитвенных записей",
-    };
+    return await sendMessage(chatId, `❌ Ошибка при получении молитв: ${detail}`);
   }
 };
 
@@ -281,10 +279,8 @@ export const executeOldPrayersCommand = async (
 
     return result;
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logWarn("Error in old prayers command", error);
-    return {
-      success: false,
-      error: "Произошла ошибка при получении молитвенных записей",
-    };
+    return await sendMessage(chatId, `❌ Ошибка при получении молитв: ${detail}`);
   }
 };

@@ -358,10 +358,22 @@ export const getWeeklyPrayerRecords = async (): Promise<PrayerRecord[]> => {
       final: prayerRecords.length,
     });
 
+    // The DB returned rows but NONE matched our expected Notion property
+    // names, so every record was skipped. This is the classic
+    // "перестало работать" symptom after a column was renamed in Notion.
+    if (response.results.length > 0 && prayerRecords.length === 0) {
+      throw new Error(
+        `База молитвы вернула ${response.results.length} записей, но ни одна не обработана ` +
+          `(пропущено: ${skippedCount}). Скорее всего, в Notion переименованы свойства — ` +
+          `ожидаются: "Дата молитвы", "Молитвенное лицо", "Тема молитвы".`
+      );
+    }
+
     return prayerRecords;
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logError("Error getting weekly prayer records", error);
-    return [];
+    throw new Error(`Ошибка чтения базы молитвы из Notion: ${detail}`);
   }
 };
 

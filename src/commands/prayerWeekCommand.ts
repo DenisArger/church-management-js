@@ -85,12 +85,12 @@ export const executePrayerWeekCommand = async (
 
     return result;
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logWarn("Error in prayer week command", error);
-    return {
-      success: false,
-      error:
-        "Произошла ошибка при получении информации о молитвах на следующую неделю",
-    };
+    return await sendMessage(
+      chatId,
+      `❌ Ошибка при получении молитв: ${detail}`
+    );
   }
 };
 
