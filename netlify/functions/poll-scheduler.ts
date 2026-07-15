@@ -25,6 +25,7 @@ import {
 import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { deleteProcessedPostDeletions, getPendingBroadcastMailings, getPendingPostDeletions, markBroadcastMailingSent } from "../../src/services/youtubeBroadcastService";
 import { runBroadcastMailing } from "../../src/commands/youtubeBroadcastMailingCommand";
+import { syncYouTubeBroadcasts } from "../../src/services/youtubeApiService";
 import { deleteTelegramMessage } from "../../src/services/telegramService";
 import { logInfo, logWarn, logError } from "../../src/utils/logger";
 
@@ -192,6 +193,23 @@ export const handler: Handler = async (event: HandlerEvent) => {
         logError("Failed to send youth care reminders", {
           error: result.error,
         });
+      }
+    }
+
+    // Sync YouTube broadcasts every 6 hours (Moscow time) to stay within API quotas
+    const moscowHour = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Moscow",
+      hour: "2-digit",
+      hour12: false,
+    }).format(now);
+    const moscowHourNum = Number(moscowHour);
+    if (!isNaN(moscowHourNum) && moscowHourNum % 6 === 0) {
+      logInfo("Syncing YouTube broadcasts", { hour: moscowHourNum });
+      try {
+        const youtubeSync = await syncYouTubeBroadcasts();
+        logInfo("YouTube sync completed", youtubeSync);
+      } catch (error) {
+        logError("YouTube sync failed", error);
       }
     }
 

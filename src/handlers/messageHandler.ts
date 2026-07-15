@@ -30,6 +30,7 @@ import {
   executeYouthReportCommand,
   handleYouthReportCallback,
 } from "../commands/youthReportCommand";
+import { executeScheduleBroadcastCommand } from "../commands/scheduleBroadcastCommand";
 import { createPrayerNeed } from "../services/notionService";
 import {
   sendMessage,
@@ -351,6 +352,9 @@ export const handleMessage = async (
 
     case "/youth_report":
       return await executeYouthReportCommand(userId, chatId, params);
+
+    case "/schedule_broadcast":
+      return await executeScheduleBroadcastCommand(userId, chatId, params);
 
     default:
       // Check if it's a prayer request (only in private chats)

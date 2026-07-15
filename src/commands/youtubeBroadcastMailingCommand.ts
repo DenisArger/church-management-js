@@ -34,36 +34,32 @@ export const runBroadcastMailing = async (
     const technoGroupId = parseId(telegramConfig.technoGroupId);
     const technoTopicId = parseId(telegramConfig.technoGroupBroadcastTopicId);
 
-    if (isNaN(technoGroupId)) {
+    if (!isNaN(technoGroupId)) {
+      const messageOptions: Record<string, unknown> = {
+        parse_mode: "MarkdownV2",
+        reply_markup: replyMarkup,
+      };
+      if (!isNaN(technoTopicId)) {
+        messageOptions.message_thread_id = technoTopicId;
+      }
+
+      const messageResult = await sendMessage(technoGroupId, caption, messageOptions);
+      if (!messageResult.success) {
+        logError("Failed to send techno group message", { error: messageResult.error });
+        return {
+          success: false,
+          error: `Failed to send techno group message: ${messageResult.error}`,
+        };
+      }
+
+      logInfo("Techno group message sent", {
+        chatId: technoGroupId,
+        topicId: !isNaN(technoTopicId) ? technoTopicId : undefined,
+        messageId: messageResult.data?.messageId,
+      });
+    } else {
       logWarn("Techno group ID not configured, skipping techno group mailing");
-      return {
-        success: false,
-        error: "Techno group ID not configured",
-      };
     }
-
-    const messageOptions: Record<string, unknown> = {
-      parse_mode: "MarkdownV2",
-      reply_markup: replyMarkup,
-    };
-    if (!isNaN(technoTopicId)) {
-      messageOptions.message_thread_id = technoTopicId;
-    }
-
-    const messageResult = await sendMessage(technoGroupId, caption, messageOptions);
-    if (!messageResult.success) {
-      logError("Failed to send techno group message", { error: messageResult.error });
-      return {
-        success: false,
-        error: `Failed to send techno group message: ${messageResult.error}`,
-      };
-    }
-
-    logInfo("Techno group message sent", {
-      chatId: technoGroupId,
-      topicId: !isNaN(technoTopicId) ? technoTopicId : undefined,
-      messageId: messageResult.data?.messageId,
-    });
 
     const mainGroupId = parseId(telegramConfig.mainGroupId);
     const mainTopicId = parseId(telegramConfig.mainGroupBroadcastTopicId);

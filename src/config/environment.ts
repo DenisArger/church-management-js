@@ -63,6 +63,16 @@ export const getNotionConfig = () => ({
   youthLeadersDatabase: process.env.NOTION_YOUTH_LEADERS_DATABASE,
 });
 
+export const getYouTubeConfig = () => ({
+  apiKey: process.env.YOUTUBE_API_KEY,
+  channelId: process.env.YOUTUBE_CHANNEL_ID,
+  clientId: process.env.YOUTUBE_CLIENT_ID,
+  clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+  refreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
+  broadcastTestTechnoOnly:
+    String(process.env.YOUTUBE_BROADCAST_TEST_TECHNO_ONLY ?? "").trim().toLowerCase() === "true",
+});
+
 /** Normalize config value: trim, lowercase, accept "1"/"0". */
 function normalizeBool(val: unknown): string {
   const s = String(val ?? "").trim().toLowerCase();
