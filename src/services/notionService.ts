@@ -236,10 +236,12 @@ export const getWeeklyPrayerRecords = async (): Promise<PrayerRecord[]> => {
       databaseId: config.weeklyPrayerDatabase,
     });
 
+    // NOTE: `archived` and `in_trash` were removed from the
+    // Notion `databases.query` request body and now cause
+    // "body failed validation". Archived/trashed rows are already
+    // excluded by the per-record check below (page.archived / page.in_trash).
     const response = await client.databases.query({
       database_id: config.weeklyPrayerDatabase,
-      archived: false,
-      in_trash: false,
     });
 
     logInfo("Notion response received", {
