@@ -365,12 +365,18 @@ const getLastReferenceWeekTopic = async (
       return isDateInRange(record.dateStart, referenceWeekStart, referenceWeekEnd);
     });
     
-    if (referenceWeekRecords.length === 0) {
+    // Fallback: if the reference week has no records (e.g. adding for
+    // next week but nobody prayed this week yet), use the most
+    // recent prayer topic overall so "copy last topic" stays useful.
+    const sourceRecords =
+      referenceWeekRecords.length > 0 ? referenceWeekRecords : records;
+
+    if (sourceRecords.length === 0) {
       return null;
     }
-    
+
     // Sort by date (newest first) and return the last topic
-    const sortedRecords = referenceWeekRecords.sort(
+    const sortedRecords = sourceRecords.sort(
       (a, b) => b.dateStart.getTime() - a.dateStart.getTime()
     );
     
