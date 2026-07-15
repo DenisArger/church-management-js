@@ -20,7 +20,8 @@ function getClient(): SupabaseClient | null {
 
 export const scheduleBroadcastMailing = async (
   broadcast: YouTubeBroadcast,
-  delayMinutes: number = 5
+  delayMinutes: number = 5,
+  scheduledForOverride?: string
 ): Promise<YouTubeBroadcastMailing | null> => {
   const client = getClient();
   if (!client) {
@@ -28,7 +29,9 @@ export const scheduleBroadcastMailing = async (
     return null;
   }
 
-  const scheduledFor = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+  const scheduledFor = scheduledForOverride
+    ? scheduledForOverride
+    : new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
   const now = new Date().toISOString();
 
   const { data, error } = await client
@@ -53,7 +56,7 @@ export const scheduleBroadcastMailing = async (
 
   logInfo("Broadcast mailing scheduled", {
     mailingId: data.id,
-    youtubeId: broadcast.youtubeId,
+    youtubeId: data.youtube_id,
     scheduledFor,
   });
 

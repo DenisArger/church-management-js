@@ -6,6 +6,51 @@ import { logInfo, logError, logWarn } from "../utils/logger";
 
 const YOUTUBE_DATA_API_BASE = "https://www.googleapis.com/youtube/v3";
 
+function getMinskOffsetMinutes(date: Date): number {
+  const tzFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Minsk",
+    timeZoneName: "longOffset",
+  });
+
+  const parts = tzFormatter.formatToParts(date);
+  const tzPart = parts.find((p) => p.type === "timeZoneName");
+  if (!tzPart) return 180; // default +03:00 for Minsk
+
+  const match = tzPart.value.match(/GMT([+-])(\d+):(\d+)/);
+  if (!match) return 180;
+
+  const sign = match[1] === "+" ? 1 : -1;
+  const hours = parseInt(match[2], 10);
+  const minutes = parseInt(match[3], 10);
+
+  return sign * (hours * 60 + minutes);
+}
+
+function computeMailScheduledFor(scheduledStartTime: string): string {
+  const broadcastDate = new Date(scheduledStartTime);
+
+  // Get the date in Minsk timezone as YYYY-MM-DD
+  const minskDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Minsk",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(broadcastDate);
+
+  // Create 9:00 AM Minsk time by adjusting for Minsk UTC offset
+  const offsetMinutes = getMinskOffsetMinutes(broadcastDate);
+  const nineAMMinsk = new Date(`${minskDateStr}T09:00:00`);
+  const utcTime = new Date(nineAMMinsk.getTime() - offsetMinutes * 60 * 1000);
+
+  // If 9 AM Minsk has already passed for this broadcast date, send immediately
+  const now = new Date();
+  if (utcTime <= now) {
+    return now.toISOString();
+  }
+
+  return utcTime.toISOString();
+}
+
 interface YouTubeSearchItem {
   id: {
     kind: string;
@@ -107,6 +152,8 @@ async function youtubeGet<T>(
   return (await response.json()) as T;
 }
 
+export { computeMailScheduledFor };
+
 export const fetchUpcomingYouTubeBroadcasts = async (): Promise<YouTubeBroadcast[]> => {
   const config = getYouTubeConfig();
   const channelId = config.channelId?.trim();
@@ -207,7 +254,11 @@ export const syncYouTubeBroadcasts = async (): Promise<{
       continue;
     }
 
-    const mailing = await scheduleBroadcastMailing(broadcast, 5);
+    const mailing = await scheduleBroadcastMailing(
+      broadcast,
+      5,
+      computeMailScheduledFor(broadcast.scheduledStartTime)
+    );
     if (mailing) {
       created++;
       logInfo("Scheduled broadcast mailing from YouTube", {

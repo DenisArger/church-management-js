@@ -1,5 +1,6 @@
 import { CommandResult } from "../types";
 import { scheduleBroadcastMailing } from "../services/youtubeBroadcastService";
+import { computeMailScheduledFor } from "../services/youtubeApiService";
 import { logInfo, logError, logWarn } from "../utils/logger";
 
 /**
@@ -45,12 +46,16 @@ export const executeScheduleBroadcastCommand = async (
       };
     }
 
-    const mailing = await scheduleBroadcastMailing({
-      youtubeId,
-      title,
-      privacyStatus,
-      scheduledStartTime,
-    });
+    const mailing = await scheduleBroadcastMailing(
+      {
+        youtubeId,
+        title,
+        privacyStatus,
+        scheduledStartTime,
+      },
+      5,
+      computeMailScheduledFor(scheduledStartTime)
+    );
 
     if (!mailing) {
       return {
@@ -70,7 +75,7 @@ export const executeScheduleBroadcastCommand = async (
     return {
       success: true,
       message:
-        `✅ Рассылка трансляции запланирована!\n` +
+        `✅ Рассылка трансляции запланирована на 9:00 (Минск)!\n` +
         `YouTube ID: ${youtubeId}\n` +
         `Название: ${title}\n` +
         `Время трансляции: ${dt.toLocaleString("ru-RU")}\n` +
