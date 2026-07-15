@@ -41,8 +41,11 @@ export const executeAddPrayerCommand = async (
 ): Promise<CommandResult> => {
   logInfo("Executing add prayer command", { userId, chatId, params });
 
-  // Check if user has active prayer form state
-  if (await hasActivePrayerState(userId)) {
+  // Continue an active form only when the user actually typed something.
+  // A menu button click ("Добавить молитву") arrives with empty
+  // params and must (re)start a fresh session, not be treated as
+  // empty text input (which would reply "Пустой ввод").
+  if (await hasActivePrayerState(userId) && params.length > 0) {
     // Handle text input for topic or new person name
     return await handlePrayerTextInput(userId, chatId, params.join(" "));
   }
