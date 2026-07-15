@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { logError } from "./logger";
 
 let supabaseClient: SupabaseClient | null | undefined = undefined;
 
@@ -64,12 +65,23 @@ export async function setState(
 ): Promise<void> {
   const client = getSupabase();
   if (client) {
-    await client
+    const { error } = await client
       .from("user_form_state")
       .upsert(
         { user_id: userId, state_type: stateType, payload, updated_at: new Date().toISOString() },
         { onConflict: "user_id,state_type" }
       );
+    if (error) {
+      logError("Supabase setState upsert failed", {
+        userId,
+        stateType,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(`Supabase setState failed (${stateType}): ${error.message}`);
+    }
     return;
   }
   memory.set(`${userId}:${stateType}`, JSON.parse(JSON.stringify(payload)));

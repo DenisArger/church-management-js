@@ -71,10 +71,11 @@ export const executeAddPrayerCommand = async (
 
     return result;
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logError("Error in add prayer command", error);
     return {
       success: false,
-      error: "Произошла ошибка при запуске добавления молитвы",
+      error: `Ошибка при запуске добавления молитвы: ${detail}`,
     };
   }
 };
@@ -128,9 +129,14 @@ export const handlePrayerCallback = async (
           if (recoveredState) {
             return await handlePersonSelection(userId, chatId, callbackData, recoveredState);
           }
-        } catch (error) {
-          logError("Error recovering state", error);
-        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        logError("Error recovering state", error);
+        return {
+          success: false,
+          error: `Не удалось восстановить сессию: ${detail}`,
+        };
+      }
       }
       
       return {
@@ -163,10 +169,11 @@ export const handlePrayerCallback = async (
         return { success: false, error: "Неизвестное действие" };
     }
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logError("Error handling prayer callback", error);
     return {
       success: false,
-      error: "Произошла ошибка при обработке запроса",
+      error: `Произошла ошибка при обработке запроса: ${detail}`,
     };
   }
 };
@@ -221,10 +228,11 @@ const handleWeekSelection = async (
       parse_mode: "HTML",
     });
   } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     logError("Error getting prayer records", error);
     return {
       success: false,
-      error: "Произошла ошибка при получении списка людей",
+      error: `Произошла ошибка при получении списка людей: ${detail}`,
     };
   }
 };
