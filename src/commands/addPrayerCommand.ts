@@ -142,10 +142,10 @@ export const handlePrayerCallback = async (
       }
       }
       
-      return {
-        success: false,
-        error: "Сессия не найдена. Начните заново с команды /add_prayer",
-      };
+      return await replyError(
+        chatId,
+        "Сессия не найдена. Начните заново с команды /add_prayer"
+      );
     }
 
     // Update message ID if provided
@@ -169,7 +169,7 @@ export const handlePrayerCallback = async (
         return await handleCancel(userId, chatId, state);
       default:
         logWarn("Unknown prayer callback action", { action, callbackData, parts });
-        return { success: false, error: "Неизвестное действие" };
+        return await replyError(chatId, "Неизвестное действие молитвенной формы");
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -301,7 +301,7 @@ const handlePersonSelection = async (
     });
   }
 
-  return { success: false, error: "Неизвестный формат выбора человека" };
+  return await replyError(chatId, "Неизвестный формат выбора человека");
 };
 
 /**
@@ -568,6 +568,26 @@ const handleTopicAction = async (
 };
 
 /**
+ * Send a user-visible error message (instead of silently returning an
+ * error result that the webhook never delivers). This guarantees the
+ * user always gets feedback, even when the form state is lost.
+ */
+const replyError = async (
+  chatId: number,
+  shortMessage: string
+): Promise<CommandResult> => {
+  const detail =
+    "Возможная причина: состояние формы было потеряно между шагами " +
+    "(например, из-за перезапуска сервера/бессерверной функции, " +
+    "когда хранилище состояния не сохраняется между вызовами). " +
+    "Это и есть причина, по которой бот «ничего не отвечал». " +
+    "Пожалуйста, начните заново.";
+  return await sendMessage(chatId, `❌ ${shortMessage}\n\n${detail}`, {
+    parse_mode: "HTML",
+  });
+};
+
+/**
  * Handle text input for prayer form
  */
 const handlePrayerTextInput = async (
@@ -577,10 +597,10 @@ const handlePrayerTextInput = async (
 ): Promise<CommandResult> => {
   const state = await getPrayerState(userId);
   if (!state) {
-    return {
-      success: false,
-      error: "Сессия не найдена. Начните заново с команды /add_prayer",
-    };
+    return await replyError(
+      chatId,
+      "Сессия не найдена. Начните заново с команды /add_prayer"
+    );
   }
 
   if (!text || text.trim().length === 0) {
@@ -635,7 +655,7 @@ const handlePrayerTextInput = async (
     });
   }
 
-  return { success: false, error: "Неожиданное состояние формы" };
+  return await replyError(chatId, "Неожиданное состояние формы. Начните заново с команды /add_prayer");
 };
 
 /**
