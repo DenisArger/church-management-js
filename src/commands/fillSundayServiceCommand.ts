@@ -682,7 +682,19 @@ export const handleSundayServiceTextInput = async (
   try {
     const state = await getUserState(userId);
     if (!state || !state.waitingForTextInput) {
-      return { success: true, message: "Text input ignored" };
+      // Активна «зависшая» воскресная форма, но она не ждёт
+      // текстового ввода — поэтому бот «молчал». Сообщаем
+      // пользователю причину и предлагаем сбросить форму.
+      await sendMessage(
+        chatId,
+        "⚠️ Активна форма готовности к воскресному служению " +
+          "(её состояние зависло), но она сейчас не ждёт ввода. " +
+          "Именно поэтому бот не ответил на ваше сообщение. " +
+          "Чтобы сбросить: нажмите «❌ Отмена» в форме воскресного " +
+          "служения либо выполните /fill_sunday_service заново.",
+        { parse_mode: "HTML" }
+      );
+      return { success: false, error: "Text input ignored (stale sunday state)" };
     }
 
     switch (state.step) {

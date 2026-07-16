@@ -372,7 +372,17 @@ export const handleScheduleTextInput = async (
   try {
     const state = await getUserState(userId);
     if (!state || !state.waitingForTextInput) {
-      return { success: true, message: "Text input ignored" };
+      // Зависшая форма расписания, не ждущая ввода — бот «молчал».
+      await sendMessage(
+        chatId,
+        "⚠️ Активна форма редактирования расписания " +
+          "(её состояние зависло), но она сейчас не ждёт ввода. " +
+          "Именно поэтому бот не ответил. Чтобы сбросить: " +
+          "нажмите «❌ Отмена» в форме расписания либо " +
+          "выполните /edit_schedule заново.",
+        { parse_mode: "HTML" }
+      );
+      return { success: false, error: "Text input ignored (stale schedule state)" };
     }
 
     switch (state.step) {

@@ -53,18 +53,33 @@ import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
 import { logInfo, logWarn, logError } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
 import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
-import { hasActiveState } from "../utils/sundayServiceState";
-import {
-  hasActiveState as hasActiveScheduleState,
-} from "../utils/scheduleState";
 import {
   hasActivePrayerState,
 } from "../utils/prayerState";
+import { getState, deleteState, StateType } from "../utils/stateStore";
 import {
   hasActiveYouthReportState,
 } from "../utils/youthReportState";
 import { isScriptureSchedule } from "../utils/scriptureScheduleParser";
 import { handleScriptureScheduleMessage } from "./scriptureScheduleHandler";
+
+/**
+ * Returns true only if the user has an active form state that is actually
+ * waiting for free-text input. A "stale" state (exists but
+ * waitingForTextInput is false) is cleared so it can no longer hijack
+ * unrelated text messages and cause the bot to silently ignore them.
+ */
+const isFormWaiting = async (stateType: StateType, userId: number): Promise<boolean> => {
+  const raw = await getState(userId, stateType);
+  if (!raw) return false;
+  const waiting = raw.waitingForTextInput === true;
+  if (!waiting) {
+    // Stale state — drop it so other forms / commands work again.
+    await deleteState(userId, stateType);
+    logWarn("Cleared stale form state", { userId, stateType });
+  }
+  return waiting;
+};
 
 export const handleUpdate = async (
   update: TelegramUpdate
@@ -291,7 +306,7 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    (await hasActiveState(userId))
+    (await isFormWaiting("sunday_service", userId))
   ) {
     // Handle regular text input for Sunday service form
     return await handleSundayServiceTextInput(userId, chatId, text);
@@ -301,7 +316,7 @@ export const handleMessage = async (
   if (
     !isCommand &&
     text !== undefined &&
-    (await hasActiveScheduleState(userId))
+    (await isFormWaiting("schedule", userId))
   ) {
     // Handle regular text input for schedule form
     return await handleScheduleTextInput(userId, chatId, text);
