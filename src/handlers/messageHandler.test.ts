@@ -24,7 +24,7 @@ jest.mock("../commands/helpCommand", () => ({
 jest.mock("../commands/showMenuCommand", () => ({
   executeShowMenuCommand: jest.fn().mockResolvedValue({ success: true }),
 }));
-jest.mock("../utils/logger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+jest.mock("../utils/logger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
 jest.mock("../config/environment", () => ({
   getTelegramConfig: jest.fn(() => ({
     mainGroupId: "-10012345",

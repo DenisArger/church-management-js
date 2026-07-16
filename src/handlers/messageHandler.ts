@@ -50,7 +50,7 @@ import {
   buildRewrittenBroadcastMessage,
 } from "../services/broadcastRewriteService";
 import { isPrayerRequest, categorizePrayerNeed } from "../utils/textAnalyzer";
-import { logInfo, logWarn } from "../utils/logger";
+import { logInfo, logWarn, logError } from "../utils/logger";
 import { isUserAuthorized, getUnauthorizedMessage, isYouthLeader } from "../utils/authHelper";
 import { parseCallbackData, buildPrayerMenu, buildScheduleMenu, buildSundayMenu } from "../utils/menuBuilder";
 import { hasActiveState } from "../utils/sundayServiceState";
@@ -76,10 +76,60 @@ export const handleUpdate = async (
 
   // Handle regular messages
   if (update.message) {
-    return await handleMessage(update);
+    try {
+      return await handleMessage(update);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      const chatId = update.message?.chat?.id;
+      logError("Unhandled error in handleMessage", { chatId, detail });
+      if (chatId !== undefined) {
+        await sendDiagnostic(
+          chatId,
+          `⚠️ Внутренняя ошибка обработки сообщения: ${detail}. ` +
+            `Сообщите разработчику — это и есть причина, по которой бот «молчал».`
+        );
+      }
+      return { success: false, error: detail };
+    }
   }
 
   return { success: false, error: "No message or callback_query in update" };
+};
+
+/**
+ * Diagnostic helper: always tries to deliver a message to the user, and
+ * if that fails, forwards the failure text to the techno/admin group
+ * (if configured) so the reason is never silently lost.
+ */
+const sendDiagnostic = async (
+  chatId: number,
+  text: string
+): Promise<void> => {
+  try {
+    const result = await sendMessage(chatId, text, { parse_mode: "HTML" });
+    if (!result.success) {
+      logWarn("Diagnostic sendMessage returned failure", {
+        chatId,
+        error: result.error,
+      });
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logWarn("Diagnostic sendMessage threw", { chatId, detail });
+    // Last-resort: try to surface the failure to the techno group.
+    try {
+      const cfg = getTelegramConfig();
+      const techno = cfg.technoGroupId ? parseInt(String(cfg.technoGroupId), 10) : NaN;
+      if (!Number.isNaN(techno)) {
+        await sendMessage(
+          techno,
+          `⚠️ Не удалось отправить диагностику пользователю (chatId=${chatId}): ${detail}`
+        );
+      }
+    } catch {
+      // give up - nothing else we can do
+    }
+  }
 };
 
 // Keep old function name for backward compatibility
@@ -265,15 +315,21 @@ export const handleMessage = async (
   ) {
     // Handle regular text input for prayer form
     return await executeAddPrayerCommand(userId, chatId, [text]);
-  } else if (!isCommand && text !== undefined) {
+  } else if (
+    !isCommand &&
+    text !== undefined &&
+    !message.from?.is_bot
+  ) {
     // Молитвенная форма ожидалась, но её состояние уже потеряно.
     // Отправляем диагностику в любой чат, иначе бот «молчит».
+    // Сообщения от самого бота не трогаем (их обрабатывает релей).
     const reason =
       "Состояние молитвенной формы не найдено (скорее всего, потеряно " +
       "между шагами из-за перезапуска сервера/бессерверной функции, " +
       "когда хранилище состояния не сохраняется между вызовами). " +
       "Поэтому бот не ответил. Начните заново: /add_prayer";
-    return await sendMessage(chatId, `⚠️ ${reason}`, { parse_mode: "HTML" });
+    await sendDiagnostic(chatId, `⚠️ ${reason}`);
+    return { success: false, error: reason };
   } else {
     logInfo("Prayer text-input routing skipped", {
       userId,
@@ -378,7 +434,7 @@ export const handleMessage = async (
       // Сообщение не обработано (форма не активна, это не команда
       // и не тема молитвы). Отправляем диагностику, иначе бот
       // «молчит» и неясно, почему нет ответа.
-      if (text !== undefined && !isCommand) {
+      if (text !== undefined && !isCommand && !message.from?.is_bot) {
         const reason =
           "Сообщение не обработано: активная форма не найдена, это не " +
           "команда и не тема молитвы. Скорее всего, состояние формы " +
@@ -386,7 +442,8 @@ export const handleMessage = async (
           "функции, когда хранилище состояния не сохраняется между " +
           "вызовами). Поэтому бот не ответил. Если вы заполняли форму — " +
           "начните заново: /add_prayer";
-        return await sendMessage(chatId, `⚠️ ${reason}`, { parse_mode: "HTML" });
+        await sendDiagnostic(chatId, `⚠️ ${reason}`);
+        return { success: false, error: reason };
       }
 
       // Ignore other messages (группы/каналы — не спамим)
