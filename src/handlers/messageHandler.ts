@@ -330,21 +330,6 @@ export const handleMessage = async (
   ) {
     // Handle regular text input for prayer form
     return await executeAddPrayerCommand(userId, chatId, [text]);
-  } else if (
-    !isCommand &&
-    text !== undefined &&
-    !message.from?.is_bot
-  ) {
-    // Молитвенная форма ожидалась, но её состояние уже потеряно.
-    // Отправляем диагностику в любой чат, иначе бот «молчит».
-    // Сообщения от самого бота не трогаем (их обрабатывает релей).
-    const reason =
-      "Состояние молитвенной формы не найдено (скорее всего, потеряно " +
-      "между шагами из-за перезапуска сервера/бессерверной функции, " +
-      "когда хранилище состояния не сохраняется между вызовами). " +
-      "Поэтому бот не ответил. Начните заново: /add_prayer";
-    await sendDiagnostic(chatId, `⚠️ ${reason}`);
-    return { success: false, error: reason };
   } else {
     logInfo("Prayer text-input routing skipped", {
       userId,
@@ -446,22 +431,7 @@ export const handleMessage = async (
         return await handlePrayerNeed(message);
       }
 
-      // Сообщение не обработано (форма не активна, это не команда
-      // и не тема молитвы). Отправляем диагностику, иначе бот
-      // «молчит» и неясно, почему нет ответа.
-      if (text !== undefined && !isCommand && !message.from?.is_bot) {
-        const reason =
-          "Сообщение не обработано: активная форма не найдена, это не " +
-          "команда и не тема молитвы. Скорее всего, состояние формы " +
-          "было потеряно между шагами (перезапуск сервера / бессерверной " +
-          "функции, когда хранилище состояния не сохраняется между " +
-          "вызовами). Поэтому бот не ответил. Если вы заполняли форму — " +
-          "начните заново: /add_prayer";
-        await sendDiagnostic(chatId, `⚠️ ${reason}`);
-        return { success: false, error: reason };
-      }
-
-      // Ignore other messages (группы/каналы — не спамим)
+      // Ignore other messages
       logInfo("Ignoring message", {
         userId,
         chatId,
