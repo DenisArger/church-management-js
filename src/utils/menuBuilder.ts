@@ -83,6 +83,15 @@ export function buildScheduleMenu(): InlineKeyboardMarkup {
     { text: "📝 Редактировать расписание", callback_data: "cmd:edit_schedule" },
   ]);
 
+  buttons.push([
+    { text: "📋 Скопировать текущую неделю", callback_data: "cmd:copy_schedule:current" },
+    { text: "📋 Скопировать следующую неделю", callback_data: "cmd:copy_schedule:next" },
+  ]);
+
+  buttons.push([
+    { text: "🔁 Дублировать неделю в следующую", callback_data: "cmd:duplicate_schedule" },
+  ]);
+
   // Back button
   buttons.push([
     { text: "⬅️ Назад", callback_data: "menu:main" },

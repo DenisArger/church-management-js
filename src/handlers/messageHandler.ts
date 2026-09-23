@@ -14,6 +14,8 @@ import {
   handlePrayerCallback,
 } from "../commands/addPrayerCommand";
 import { executeWeeklyScheduleCommand } from "../commands/weeklyScheduleCommand";
+import { executeCopyWeeklyScheduleCommand } from "../commands/copyWeeklyScheduleCommand";
+import { executeDuplicateWeeklyScheduleCommand } from "../commands/duplicateWeeklyScheduleCommand";
 import { executePrayerWeekCommand } from "../commands/prayerWeekCommand";
 import { executeShowMenuCommand } from "../commands/showMenuCommand";
 import {
@@ -406,6 +408,12 @@ export const handleMessage = async (
     case "/weekly_schedule":
       return await executeWeeklyScheduleCommand(userId, chatId);
 
+    case "/copy_schedule":
+      return await executeCopyWeeklyScheduleCommand(userId, chatId, params[0] as "current" | "next" || "current");
+
+    case "/duplicate_schedule":
+      return await executeDuplicateWeeklyScheduleCommand(userId, chatId);
+
     case "/prayer_week":
       return await executePrayerWeekCommand(userId, chatId);
 
@@ -661,6 +669,15 @@ const handleCallbackQuery = async (
 
       case "edit_schedule":
         return await executeEditScheduleCommand(userId, chatId);
+
+      case "duplicate_schedule":
+        return await executeDuplicateWeeklyScheduleCommand(userId, chatId);
+
+      case "copy_schedule":
+        if (params.length > 0) {
+          return await executeCopyWeeklyScheduleCommand(userId, chatId, params[0] as "current" | "next");
+        }
+        return await executeCopyWeeklyScheduleCommand(userId, chatId, "current");
 
       case "test_notion":
         return await executeTestNotionCommand(userId, chatId);
