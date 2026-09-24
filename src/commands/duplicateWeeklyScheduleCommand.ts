@@ -35,8 +35,11 @@ export const executeDuplicateWeeklyScheduleCommand = async (
       const result = await createScheduleService({
         title: service.title,
         date: nextWeekDate,
-        // Note: createScheduleService only uses title and date currently
-        // Other fields (time, type, description, location) would need to be added to ScheduleFormData
+        time: service.time,
+        type: service.type,
+        description: service.description,
+        location: service.location,
+        needsMailing: service.needsMailing,
       });
 
       if (result.success) {
@@ -66,9 +69,13 @@ export const executeDuplicateWeeklyScheduleCommand = async (
       }
     }
 
-    return await sendMessage(chatId, message, { parse_mode: "HTML" });
+    const finalResult = await sendMessage(chatId, message, { parse_mode: "HTML" });
+    if (!finalResult.success && finalResult.error) {
+      return { success: false, error: finalResult.error };
+    }
+    return finalResult;
   } catch (error) {
     logError("Error duplicating weekly schedule", error);
-    return { success: false, error: "Произошла ошибка при копировании недели" };
+    return { success: false, error: error instanceof Error ? error.message : "Произошла неизвестная ошибка при копировании недели" };
   }
 };

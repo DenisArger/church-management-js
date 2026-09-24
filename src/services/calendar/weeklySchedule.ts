@@ -523,9 +523,33 @@ export const createScheduleService = async (
         date: { start: dateStr },
       },
       "Нужна рассылка": {
-        checkbox: false, // Default to false, can be changed later
+        checkbox: serviceData.needsMailing || false, // Use serviceData.needsMailing if provided, otherwise default to false
       },
     };
+
+    if (serviceData.time) {
+      properties["Время"] = {
+        rich_text: [{ text: { content: serviceData.time } }],
+      };
+    }
+
+    if (serviceData.type) {
+      properties["Тип служения"] = {
+        select: { name: serviceData.type },
+      };
+    }
+
+    if (serviceData.description) {
+      properties["Описание"] = {
+        rich_text: [{ text: { content: serviceData.description } }],
+      };
+    }
+
+    if (serviceData.location) {
+      properties["Место"] = {
+        rich_text: [{ text: { content: serviceData.location } }],
+      };
+    }
 
     const response = await client.pages.create({
       parent: { database_id: config.generalCalendarDatabase },

@@ -276,6 +276,11 @@ export interface ScheduleFormData {
   weekType?: "current" | "next"; // For edit mode - selected week
   date?: Date;
   title?: string;
+  time?: string;
+  type?: string;
+  description?: string;
+  location?: string;
+  needsMailing?: boolean;
   serviceId?: string; // For edit mode
 }
 
