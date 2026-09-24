@@ -77,6 +77,18 @@ export const formatDateForNotion = (date: Date): string => {
 };
 
 /**
+ * Format date with time as ISO string for Notion
+ */
+export const formatDateTimeForNotion = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+};
+
+/**
  * Format date as YYYY-MM-DD in Europe/Moscow timezone.
  * Used for Notion date filters where the "day" must match Moscow calendar day.
  */

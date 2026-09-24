@@ -13,7 +13,7 @@ import {
 import { getNotionClient } from "../notionService";
 import { getNotionConfig } from "../../config/environment";
 import { logInfo, logError } from "../../utils/logger";
-import { formatDateForNotion } from "../../utils/dateHelper";
+import { formatDateForNotion, formatDateTimeForNotion } from "../../utils/dateHelper";
 
 /**
  * Get weekly schedule with services that need mailing
@@ -267,6 +267,7 @@ const mapNotionPageToWeeklyService = (
 
   // Try different possible field names for description
   const possibleDescriptionFields = [
+    "Тема",
     "Описание",
     "Description",
     "Примечание",
@@ -528,8 +529,15 @@ export const createScheduleService = async (
     };
 
     if (serviceData.time) {
-      properties["Время"] = {
-        rich_text: [{ text: { content: serviceData.time } }],
+      // Time is stored in the Date field, not a separate property
+      const dateTime = new Date(baseDate);
+      const [hours, minutes] = serviceData.time.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        dateTime.setHours(hours, minutes, 0, 0);
+      }
+      const dateTimeStr = formatDateTimeForNotion(dateTime);
+      properties["Дата"] = {
+        date: { start: dateTimeStr },
       };
     }
 
@@ -540,14 +548,14 @@ export const createScheduleService = async (
     }
 
     if (serviceData.description) {
-      properties["Описание"] = {
+      properties["Тема"] = {
         rich_text: [{ text: { content: serviceData.description } }],
       };
     }
 
     if (serviceData.location) {
       properties["Место"] = {
-        rich_text: [{ text: { content: serviceData.location } }],
+        select: { name: serviceData.location },
       };
     }
 
@@ -598,13 +606,46 @@ export const updateScheduleService = async (
       };
     }
 
-    if (serviceData.date) {
+    if (serviceData.time && serviceData.date) {
+      // Time is stored in the Date field, not a separate property
+      const dateToFormat = serviceData.date instanceof Date
+        ? new Date(serviceData.date)
+        : new Date(serviceData.date);
+      const [hours, minutes] = serviceData.time.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        dateToFormat.setHours(hours, minutes, 0, 0);
+      }
+      const dateTimeStr = formatDateTimeForNotion(dateToFormat);
+      properties["Дата"] = {
+        date: { start: dateTimeStr },
+      };
+    }
+
+    if (serviceData.date && !serviceData.time) {
       const dateToFormat = serviceData.date instanceof Date
         ? serviceData.date
         : new Date(serviceData.date);
       const dateStr = formatDateForNotion(dateToFormat);
       properties["Дата"] = {
         date: { start: dateStr },
+      };
+    }
+
+    if (serviceData.type) {
+      properties["Тип служения"] = {
+        select: { name: serviceData.type },
+      };
+    }
+
+    if (serviceData.description) {
+      properties["Тема"] = {
+        rich_text: [{ text: { content: serviceData.description } }],
+      };
+    }
+
+    if (serviceData.location) {
+      properties["Место"] = {
+        select: { name: serviceData.location },
       };
     }
 

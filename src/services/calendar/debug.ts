@@ -41,6 +41,10 @@ export const debugCalendarDatabase = async (): Promise<void> => {
         date: dateProp?.date?.start || "No date",
         type: typeProp?.select?.name || "No type",
         allProperties: Object.keys(properties),
+        propertyTypes: Object.entries(properties).map(([key, value]) => ({
+          name: key,
+          type: (value as any).type || 'unknown'
+        })),
       });
     });
   } catch (error) {
