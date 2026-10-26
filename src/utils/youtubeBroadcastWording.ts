@@ -4,7 +4,7 @@ import { isSunday, formatMinskTime } from "./dateHelper";
 export const PHOTO_ID =
   "AgACAgIAAxkBAAOyYlj-ys3nUbfITLexZ7zTwVcB5toAAkO4MRuYUclKFc7DAUhHXpoBAAMCAAN5AAMjBA";
 
-const SUNDAY_VARIANTS: string[][] = [
+export const SUNDAY_VARIANTS: string[][] = [
   [
     "Наступил этот день воскресенья!",
     "Предавай все дела забвенью!",
@@ -41,8 +41,8 @@ const SUNDAY_VARIANTS: string[][] = [
     "Ждем каждого!",
   ],
   [
-    "Велики наш Господь!",
-    "Велики Его милости к нам!",
+    "Велик наш Господь!",
+    "Велика Его милости к нам!",
     "Присоединяйся к богослужению!",
   ],
   [

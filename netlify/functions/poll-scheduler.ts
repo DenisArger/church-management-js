@@ -235,8 +235,15 @@ export const handler: Handler = async (event: HandlerEvent) => {
       );
 
       if (result.success) {
-        await markBroadcastMailingSent(mailing.id);
-        mailingsSent++;
+        const marked = await markBroadcastMailingSent(mailing.id);
+        if (marked) {
+          mailingsSent++;
+        } else {
+          logWarn("Failed to mark mailing as sent, will retry later", {
+            mailingId: mailing.id,
+          });
+          mailingsSkipped++;
+        }
       } else {
         logError("Failed to process broadcast mailing", {
           mailingId: mailing.id,

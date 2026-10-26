@@ -1,4 +1,5 @@
 import { TelegramMessage } from "../types";
+import { SUNDAY_VARIANTS } from "../utils/youtubeBroadcastWording";
 
 type BroadcastRewriteConfig = {
   enabled: boolean;
@@ -60,7 +61,15 @@ export const getBroadcastRewriteConfig = (
   };
 };
 
+// Build the set of known broadcast blocks from all Sunday variants so that
+// rewritten messages (not just the original) are also recognized and cleaned up.
+const KNOWN_BROADCAST_BLOCKS = SUNDAY_VARIANTS.map((lines) => lines.join("\n"));
+
 const findOriginalBroadcastBlock = (body: string): string | null => {
+  for (const block of KNOWN_BROADCAST_BLOCKS) {
+    if (body.includes(block)) return block;
+  }
+
   if (body.includes(ORIGINAL_BROADCAST_BLOCK_MULTILINE)) {
     return ORIGINAL_BROADCAST_BLOCK_MULTILINE;
   }

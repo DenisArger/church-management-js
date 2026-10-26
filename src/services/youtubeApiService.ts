@@ -1,6 +1,6 @@
 import { YouTubeBroadcast } from "../types/youtubeBroadcast";
 import { getYouTubeConfig } from "../config/environment";
-import { scheduleBroadcastMailing, getPendingBroadcastMailings } from "./youtubeBroadcastService";
+import { scheduleBroadcastMailing, getPendingBroadcastMailings, youtubeBroadcastExists } from "./youtubeBroadcastService";
 import { getYouTubeAccessToken } from "./youtubeTokenService";
 import { logInfo, logError, logWarn } from "../utils/logger";
 
@@ -66,6 +66,15 @@ interface YouTubeSearchItem {
 
 interface YouTubeVideoDetails {
   id: string;
+  status?: {
+    privacyStatus?: "public" | "private" | "unlisted";
+    uploadStatus?: string;
+    failureReason?: string;
+    rejectionReason?: string;
+    license?: string;
+    embeddable?: boolean;
+    publicStatsViewable?: boolean;
+  };
   liveStreamingDetails?: {
     scheduledStartTime?: string;
     actualStartTime?: string;
@@ -178,9 +187,10 @@ export const fetchUpcomingYouTubeBroadcasts = async (): Promise<YouTubeBroadcast
       return [];
     }
 
-    const upcomingItems = searchData.items.filter(
-      (item) => item.snippet.liveBroadcastContent === "upcoming"
-    );
+    // Do not filter by liveBroadcastContent === "upcoming": private/unlisted
+    // broadcasts are not returned by the YouTube search endpoint at all, so
+    // the filter only discards items that are already discoverable.
+    const upcomingItems = searchData.items;
 
     if (upcomingItems.length === 0) {
       logInfo("No upcoming YouTube broadcasts found after filtering");
@@ -189,7 +199,7 @@ export const fetchUpcomingYouTubeBroadcasts = async (): Promise<YouTubeBroadcast
 
     const videoIds = upcomingItems.map((item) => item.id.videoId).join(",");
     const videosData = await youtubeGet<YouTubeVideosResponse>("/videos", {
-      part: "liveStreamingDetails",
+      part: "status,liveStreamingDetails",
       id: videoIds,
     });
 
@@ -213,10 +223,16 @@ export const fetchUpcomingYouTubeBroadcasts = async (): Promise<YouTubeBroadcast
         continue;
       }
 
+      // Use the real privacy status from the videos endpoint when available.
+      // The search endpoint does not expose privacyStatus, so we fall back to
+      // "public" for broadcasts that are discoverable via search.
+      const privacyStatus =
+        videoDetails?.status?.privacyStatus ?? "public";
+
       broadcasts.push({
         youtubeId: item.id.videoId,
         title: item.snippet.title,
-        privacyStatus: "public",
+        privacyStatus,
         scheduledStartTime,
       });
     }
@@ -235,18 +251,16 @@ export const syncYouTubeBroadcasts = async (): Promise<{
   failed: number;
 }> => {
   const broadcasts = await fetchUpcomingYouTubeBroadcasts();
-  const pendingMailings = await getPendingBroadcastMailings();
 
-  const scheduledYouTubeIds = new Set(
-    pendingMailings.map((mailing) => mailing.youtubeId)
-  );
-
+  // Deduplicate against ALL rows (including already-sent), otherwise the next
+  // sync creates a duplicate row for the same youtubeId.
   let created = 0;
   let skipped = 0;
   let failed = 0;
 
   for (const broadcast of broadcasts) {
-    if (scheduledYouTubeIds.has(broadcast.youtubeId)) {
+    const alreadyExists = await youtubeBroadcastExists(broadcast.youtubeId);
+    if (alreadyExists) {
       skipped++;
       logInfo("YouTube broadcast already scheduled, skipping", {
         youtubeId: broadcast.youtubeId,

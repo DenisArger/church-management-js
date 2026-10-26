@@ -121,6 +121,26 @@ export const markBroadcastMailingSent = async (mailingId: string): Promise<boole
   return true;
 };
 
+export const youtubeBroadcastExists = async (
+  youtubeId: string
+): Promise<boolean> => {
+  const client = getClient();
+  if (!client) return false;
+
+  const { data, error } = await client
+    .from("youtube_broadcast_mailings")
+    .select("id")
+    .eq("youtube_id", youtubeId)
+    .limit(1);
+
+  if (error) {
+    logError("Failed to check existing broadcast mailing", error);
+    return false;
+  }
+
+  return (data?.length ?? 0) > 0;
+};
+
 export const schedulePostDeletion = async (
   chatId: number,
   messageId: number,
