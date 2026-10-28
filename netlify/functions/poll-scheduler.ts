@@ -21,12 +21,14 @@ import {
   shouldSendYouthReportReminder,
   shouldSendWeeklySchedule,
   shouldSendDailyScripture,
+  isEventCancelled,
 } from "../../src/utils/pollScheduler";
+import { formatDateTimeMoscow } from "../../src/utils/dateHelper";
 import { ensureAppConfigLoaded } from "../../src/config/appConfigStore";
 import { deleteProcessedPostDeletions, getPendingBroadcastMailings, getPendingPostDeletions, markBroadcastMailingSent } from "../../src/services/youtubeBroadcastService";
 import { runBroadcastMailing } from "../../src/commands/youtubeBroadcastMailingCommand";
 import { syncYouTubeBroadcasts } from "../../src/services/youtubeApiService";
-import { deleteTelegramMessage } from "../../src/services/telegramService";
+import { deleteTelegramMessage, sendMessageToUser } from "../../src/services/telegramService";
 import { logInfo, logWarn, logError } from "../../src/utils/logger";
 
 /**
@@ -305,6 +307,37 @@ export const handler: Handler = async (event: HandlerEvent) => {
     logInfo("Found events to check", { count: events.length });
 
     for (const eventItem of events) {
+      if (isEventCancelled(eventItem)) {
+        logInfo("Skipping cancelled event, no poll will be sent", {
+          eventId: eventItem.id,
+          eventTitle: eventItem.title,
+          eventDate: eventItem.date.toISOString(),
+        });
+
+        // Notify administrator that the poll will not be sent
+        try {
+          const telegramConfig = getTelegramConfig();
+          const adminUsers = telegramConfig.allowedUsers;
+          if (adminUsers.length > 0) {
+            await sendMessageToUser(
+              adminUsers[0],
+              `⚠️ Опрос не будет отправлен\n\n` +
+                `Тип служения: ${eventItem.serviceType || eventItem.title}\n` +
+                `Дата: ${formatDateTimeMoscow(eventItem.date)}\n` +
+                `ID события: ${eventItem.id}\n\n` +
+                `Причина: событие помечено как отменённое в Notion.`,
+            );
+          }
+        } catch (notifyError) {
+          logError("Failed to send cancelled event notification to admin", {
+            eventId: eventItem.id,
+            error: notifyError instanceof Error ? notifyError.message : String(notifyError),
+          });
+        }
+
+        continue;
+      }
+
       if (shouldSendPoll(eventItem.date, now)) {
         logInfo("Sending poll for event", {
           eventId: eventItem.id,

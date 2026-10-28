@@ -1,3 +1,4 @@
+import { CalendarItem } from "../types";
 import { logInfo, logWarn } from "./logger";
 
 const MOSCOW_TIMEZONE = "Europe/Moscow";
@@ -324,4 +325,13 @@ export const hasTime = (event: { date: Date } | null): boolean => {
     event.date.getUTCSeconds() === 0 &&
     event.date.getUTCMilliseconds() === 0;
   return !isDateOnly;
+};
+
+/**
+ * Check if event is marked as cancelled in Notion
+ */
+export const isEventCancelled = (
+  event: CalendarItem | null,
+): boolean => {
+  return event?.cancelled === true;
 };

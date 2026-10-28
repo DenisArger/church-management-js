@@ -11,6 +11,7 @@ import {
   NotionSelect,
   NotionDate,
   NotionTitle,
+  NotionCheckbox,
 } from "../types";
 import { logInfo, logError, logWarn } from "../utils/logger";
 import { getNotionConfig } from "../config/environment";
@@ -567,6 +568,7 @@ const mapNotionPageToCalendarItem = (
   const dateProp = properties["Дата"] as NotionDate;
   const descriptionProp = properties["Описание"] as NotionRichText;
   const serviceTypeProp = properties["Тип служения"] as NotionSelect;
+  const cancelledProp = properties["Отменено"] as NotionCheckbox;
 
   const themeValue = extractThemeFromProperties(properties);
 
@@ -581,6 +583,7 @@ const mapNotionPageToCalendarItem = (
     theme: themeValue,
     type: "event" as const,
     serviceType: serviceTypeProp?.select?.name,
+    cancelled: cancelledProp?.checkbox === true,
   };
 };
 

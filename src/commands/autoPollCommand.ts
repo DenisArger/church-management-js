@@ -204,6 +204,18 @@ export const executeAutoPollForEvent = async (
   try {
     const appConfig = getAppConfig();
 
+    // Skip cancelled events
+    if (event.cancelled) {
+      logInfo("Skipping auto poll for cancelled event", {
+        eventId: event.id,
+        eventTitle: event.title,
+      });
+      return {
+        success: false,
+        error: "Событие отменено, опрос не отправлен",
+      };
+    }
+
     // Generate poll content
     const { question, options } = generatePollContent(event);
 

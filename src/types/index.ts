@@ -68,6 +68,7 @@ export interface CalendarItem {
   theme?: string;
   type: "service" | "meeting" | "event";
   serviceType?: string; // Type of service from Notion (e.g., "Молодежное", "МОСТ")
+  cancelled?: boolean; // Event marked as cancelled in Notion
 }
 
 export interface DailyScripture {

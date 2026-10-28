@@ -20,13 +20,16 @@ const getNearestEvent = async () => {
     "МОСТ",
   ]);
 
-  if (events.length === 0) {
+  // Filter out cancelled events
+  const activeEvents = events.filter((e) => !e.cancelled);
+
+  if (activeEvents.length === 0) {
     return null;
   }
 
   // Sort by date and return the nearest one
-  events.sort((a, b) => a.date.getTime() - b.date.getTime());
-  return events[0];
+  activeEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return activeEvents[0];
 };
 
 /**
