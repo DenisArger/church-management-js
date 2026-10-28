@@ -314,25 +314,31 @@ export const handler: Handler = async (event: HandlerEvent) => {
           eventDate: eventItem.date.toISOString(),
         });
 
-        // Notify administrator that the poll will not be sent
-        try {
-          const telegramConfig = getTelegramConfig();
-          const adminUsers = telegramConfig.allowedUsers;
-          if (adminUsers.length > 0) {
-            await sendMessageToUser(
-              adminUsers[0],
-              `⚠️ Опрос не будет отправлен\n\n` +
-                `Тип служения: ${eventItem.serviceType || eventItem.title}\n` +
-                `Дата: ${formatDateTimeMoscow(eventItem.date)}\n` +
-                `ID события: ${eventItem.id}\n\n` +
-                `Причина: событие помечено как отменённое в Notion.`,
-            );
+        // Notify administrator only once, aligned with the normal poll-notification
+        // window (3 hours before the would-be poll = 27 hours before the event).
+        // Avoids spamming the admin every 15 minutes while the cancelled event
+        // stays in the 48-hour lookup range.
+        if (shouldSendNotification(eventItem.date, now)) {
+          try {
+            const telegramConfig = getTelegramConfig();
+            const adminUsers = telegramConfig.allowedUsers;
+            if (adminUsers.length > 0) {
+              await sendMessageToUser(
+                adminUsers[0],
+                `⚠️ Опрос не будет отправлен\n\n` +
+                  `Тип служения: ${eventItem.serviceType || eventItem.title}\n` +
+                  `Дата: ${formatDateTimeMoscow(eventItem.date)}\n` +
+                  `ID события: ${eventItem.id}\n\n` +
+                  `Причина: событие помечено как отменённое в Notion.`,
+              );
+            }
+          } catch (notifyError) {
+            logError("Failed to send cancelled event notification to admin", {
+              eventId: eventItem.id,
+              error:
+                notifyError instanceof Error ? notifyError.message : String(notifyError),
+            });
           }
-        } catch (notifyError) {
-          logError("Failed to send cancelled event notification to admin", {
-            eventId: eventItem.id,
-            error: notifyError instanceof Error ? notifyError.message : String(notifyError),
-          });
         }
 
         continue;
