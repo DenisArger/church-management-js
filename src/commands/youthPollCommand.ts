@@ -7,6 +7,7 @@ import {
 import { getYouthEventForTomorrow } from "../services/notionService";
 import { getAppConfig } from "../config/environment";
 import { logInfo, logError } from "../utils/logger";
+import { relativeDayWord } from "../utils/dateHelper";
 
 /**
  * Extract time and theme from youth event
@@ -123,10 +124,12 @@ export const executeYouthPollCommand = async (
 
     const { time, theme } = extractEventDetails(youthEvent);
 
+    const dayWord = relativeDayWord();
+
     // Form the poll question
     const question = theme
-      ? `Молодежное завтра в ${time} 🎉 Тема: "${theme}" 📖 Придешь?`
-      : `Молодежное завтра в ${time} 🎉 Придешь?`;
+      ? `Молодежное ${dayWord} в ${time} 🎉 Тема: "${theme}" 📖 Придешь?`
+      : `Молодежное ${dayWord} в ${time} 🎉 Придешь?`;
     const options = ["Конечно, буду! 🔥", "К сожалению, не буду 😔"];
 
     logInfo("Creating youth poll", {

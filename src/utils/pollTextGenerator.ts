@@ -1,26 +1,28 @@
 import { CalendarItem } from "../types";
 import { logInfo } from "./logger";
+import { relativeDayWord } from "./dateHelper";
 
 /**
  * Generate poll question text for youth service events
  */
 const generateYouthServiceQuestion = (
   time: string,
-  theme?: string
+  theme?: string,
+  dayWord: string = "завтра"
 ): string => {
   const templates = [
     theme
-      ? `Молодежное служение завтра в ${time} 🎉 Тема: "${theme}" 📖 Придёшь?`
-      : `Молодежное служение завтра в ${time} 🎉 Придёшь?`,
+      ? `Молодежное служение ${dayWord} в ${time} 🎉 Тема: "${theme}" 📖 Придёшь?`
+      : `Молодежное служение ${dayWord} в ${time} 🎉 Придёшь?`,
     theme
-      ? `Молодежное завтра в ${time} ⏰ Тема: "${theme}" 📚 Будешь?`
-      : `Молодежное завтра в ${time} ⏰ Будешь?`,
+      ? `Молодежное ${dayWord} в ${time} ⏰ Тема: "${theme}" 📚 Будешь?`
+      : `Молодежное ${dayWord} в ${time} ⏰ Будешь?`,
     theme
-      ? `Молодежное служение завтра в ${time} 🙌 Тема: "${theme}" ✨ Придешь?`
-      : `Молодежное служение завтра в ${time} 🙌 Придешь?`,
+      ? `Молодежное служение ${dayWord} в ${time} 🙌 Тема: "${theme}" ✨ Придешь?`
+      : `Молодежное служение ${dayWord} в ${time} 🙌 Придешь?`,
     theme
-      ? `Молодежное завтра в ${time} 🎵 Тема: "${theme}" 💫 Придёшь?`
-      : `Молодежное завтра в ${time} 🎵 Придёшь?`,
+      ? `Молодежное ${dayWord} в ${time} 🎵 Тема: "${theme}" 💫 Придёшь?`
+      : `Молодежное ${dayWord} в ${time} 🎵 Придёшь?`,
   ];
 
   const randomIndex = Math.floor(Math.random() * templates.length);
@@ -30,12 +32,12 @@ const generateYouthServiceQuestion = (
 /**
  * Generate poll question text for МОСТ events
  */
-const generateMostQuestion = (time: string): string => {
+const generateMostQuestion = (time: string, dayWord: string = "завтра"): string => {
   const templates = [
-    `Молодежное общение "МОСТ" завтра в ${time} 🌉 Придешь?`,
-    `МОСТ завтра в ${time} 🌉 Придешь?`,
-    `Молодежное общение МОСТ завтра в ${time} 💬 Будешь?`,
-    `МОСТ завтра в ${time} 🤝 Будешь?`,
+    `Молодежное общение "МОСТ" ${dayWord} в ${time} 🌉 Придешь?`,
+    `МОСТ ${dayWord} в ${time} 🌉 Придешь?`,
+    `Молодежное общение МОСТ ${dayWord} в ${time} 💬 Будешь?`,
+    `МОСТ ${dayWord} в ${time} 🤝 Будешь?`,
   ];
 
   const randomIndex = Math.floor(Math.random() * templates.length);
@@ -118,18 +120,20 @@ const getEventType = (event: CalendarItem): "youth" | "most" => {
  * Generate poll question and options for an event
  */
 export const generatePollContent = (
-  event: CalendarItem
+  event: CalendarItem,
+  now: Date = new Date()
 ): { question: string; options: [string, string] } => {
   const time = extractTimeFromEvent(event.date);
   const eventType = getEventType(event);
   const youthTheme = event.theme || event.title;
+  const dayWord = relativeDayWord(now);
 
   let question: string;
 
   if (eventType === "most") {
-    question = generateMostQuestion(time);
+    question = generateMostQuestion(time, dayWord);
   } else {
-    question = generateYouthServiceQuestion(time, youthTheme);
+    question = generateYouthServiceQuestion(time, youthTheme, dayWord);
   }
 
   const options = getRandomPollOptions();

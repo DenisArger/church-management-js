@@ -106,6 +106,24 @@ export const formatMoscowDate = (date: Date = new Date()): string => {
 
 export const isSunday = (date: Date): boolean => date.getUTCDay() === 0;
 
+export const getMoscowWeekday = (date: Date = new Date()): number => {
+  const moscowLocal = date.toLocaleString("en-US", {
+    timeZone: "Europe/Moscow",
+  });
+  return new Date(moscowLocal).getDay();
+};
+
+export const relativeDayWord = (date: Date = new Date()): string => {
+  switch (getMoscowWeekday(date)) {
+    case 0:
+      return "завтра";
+    case 1:
+      return "сегодня";
+    default:
+      return "завтра";
+  }
+};
+
 export const formatMinskTime = (date: Date): string => {
   return date.toLocaleTimeString("en-US", {
     timeZone: "Europe/Minsk",
