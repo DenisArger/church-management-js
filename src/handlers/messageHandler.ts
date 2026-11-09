@@ -324,9 +324,10 @@ export const handleMessage = async (
     return await handleScheduleTextInput(userId, chatId, text);
   }
 
-  // Check if user is in prayer form filling process
+  // Check if user is in prayer form filling process (private chats only)
   if (
     !isCommand &&
+    chatType === "private" &&
     text !== undefined &&
     (await hasActivePrayerState(userId))
   ) {
@@ -342,9 +343,10 @@ export const handleMessage = async (
     });
   }
 
-  // Check if user is in youth report form filling process
+  // Check if user is in youth report form filling process (private chats only)
   if (
     !isCommand &&
+    chatType === "private" &&
     text !== undefined &&
     (await hasActiveYouthReportState(userId))
   ) {
@@ -510,6 +512,13 @@ const handleCallbackQuery = async (
 
   // Check if it's a youth report callback - special authorization check
   if (callbackData.startsWith("youth_report:")) {
+    // Check chat type - youth report form is private chats only
+    const chatType = callbackQuery.message?.chat?.type;
+    if (chatType !== "private") {
+      await answerCallbackQuery(callbackQueryId, "Эта команда доступна только в личном чате с ботом", true);
+      return { success: false, error: "Youth report callbacks are only available in private chats" };
+    }
+
     // Check youth leader first - if user is a leader, allow access without checking authorization
     const isLeader = await isYouthLeader(userId);
     if (!isLeader) {
@@ -561,6 +570,12 @@ const handleCallbackQuery = async (
 
   // Check if it's a prayer form callback
   if (callbackData.startsWith("prayer:")) {
+    // Check chat type - prayer form is private chats only
+    const chatType = callbackQuery.message?.chat?.type;
+    if (chatType !== "private") {
+      await answerCallbackQuery(callbackQueryId, "Эта команда доступна только в личном чате с ботом", true);
+      return { success: false, error: "Prayer callbacks are only available in private chats" };
+    }
     await answerCallbackQuery(callbackQueryId);
     const messageId = callbackQuery.message?.message_id;
     return await handlePrayerCallback(

@@ -330,12 +330,10 @@ describe("messageHandler handleUpdate", () => {
     expect(deleteTelegramMessage).not.toHaveBeenCalledWith(-10012345, 203);
   });
 
-  it("routes prayer text input in supergroup when active state exists", async () => {
-    isUserAuthorized.mockReturnValue(true);
+  it("ignores prayer text input in supergroup when active state exists", async () => {
     const hasActivePrayerState = jest.requireMock<typeof import("../utils/prayerState")>("../utils/prayerState").hasActivePrayerState as jest.Mock;
     hasActivePrayerState.mockResolvedValueOnce(true);
     const executeAddPrayerCommand = jest.requireMock<typeof import("../commands/addPrayerCommand")>("../commands/addPrayerCommand").executeAddPrayerCommand as jest.Mock;
-    executeAddPrayerCommand.mockResolvedValueOnce({ success: true });
 
     const update = {
       update_id: 1,
@@ -350,6 +348,157 @@ describe("messageHandler handleUpdate", () => {
 
     const r = await handleUpdate(update);
     expect(r.success).toBe(true);
+    expect(r.message).toBe("Message ignored");
+    expect(executeAddPrayerCommand).not.toHaveBeenCalled();
+  });
+
+  it("routes prayer text input in private chat when active state exists", async () => {
+    const hasActivePrayerState = jest.requireMock<typeof import("../utils/prayerState")>("../utils/prayerState").hasActivePrayerState as jest.Mock;
+    hasActivePrayerState.mockResolvedValueOnce(true);
+    const executeAddPrayerCommand = jest.requireMock<typeof import("../commands/addPrayerCommand")>("../commands/addPrayerCommand").executeAddPrayerCommand as jest.Mock;
+    executeAddPrayerCommand.mockResolvedValueOnce({ success: true });
+
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111, first_name: "U", last_name: "N" },
+        chat: { id: 222, type: "private" },
+        text: "тест   ",
+        date: 1,
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
     expect(executeAddPrayerCommand).toHaveBeenCalledWith(111, 222, ["тест   "]);
+  });
+
+  it("rejects prayer callback in supergroup", async () => {
+    const answerCallbackQuery = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").answerCallbackQuery as jest.Mock;
+    const handlePrayerCallback = jest.requireMock<typeof import("../commands/addPrayerCommand")>("../commands/addPrayerCommand").handlePrayerCallback as jest.Mock;
+
+    const update = {
+      update_id: 1,
+      callback_query: {
+        id: "cq1",
+        from: { id: 111, first_name: "U" },
+        message: { message_id: 1, chat: { id: 222, type: "supergroup" }, from: { id: 1, first_name: "U" }, date: 1 },
+        data: "prayer:some_action",
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(false);
+    expect(answerCallbackQuery).toHaveBeenCalledWith("cq1", expect.stringContaining("личном чате"), true);
+    expect(handlePrayerCallback).not.toHaveBeenCalled();
+  });
+
+  it("allows prayer callback in private chat for authorized user", async () => {
+    isUserAuthorized.mockReturnValue(true);
+    const answerCallbackQuery = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").answerCallbackQuery as jest.Mock;
+    const handlePrayerCallback = jest.requireMock<typeof import("../commands/addPrayerCommand")>("../commands/addPrayerCommand").handlePrayerCallback as jest.Mock;
+    handlePrayerCallback.mockResolvedValueOnce({ success: true });
+
+    const update = {
+      update_id: 1,
+      callback_query: {
+        id: "cq1",
+        from: { id: 111, first_name: "U" },
+        message: { message_id: 1, chat: { id: 222, type: "private" }, from: { id: 1, first_name: "U" }, date: 1 },
+        data: "prayer:some_action",
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
+    expect(answerCallbackQuery).toHaveBeenCalledWith("cq1");
+    expect(handlePrayerCallback).toHaveBeenCalledWith(111, 222, "prayer:some_action", 1);
+  });
+
+  it("ignores youth report text input in supergroup when active state exists", async () => {
+    const hasActiveYouthReportState = jest.requireMock<typeof import("../utils/youthReportState")>("../utils/youthReportState").hasActiveYouthReportState as jest.Mock;
+    hasActiveYouthReportState.mockResolvedValueOnce(true);
+    const executeYouthReportCommand = jest.requireMock<typeof import("../commands/youthReportCommand")>("../commands/youthReportCommand").executeYouthReportCommand as jest.Mock;
+
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111, first_name: "U", last_name: "N" },
+        chat: { id: 222, type: "supergroup" },
+        text: "some report text",
+        date: 1,
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
+    expect(r.message).toBe("Message ignored");
+    expect(executeYouthReportCommand).not.toHaveBeenCalled();
+  });
+
+  it("routes youth report text input in private chat when active state exists", async () => {
+    const hasActiveYouthReportState = jest.requireMock<typeof import("../utils/youthReportState")>("../utils/youthReportState").hasActiveYouthReportState as jest.Mock;
+    hasActiveYouthReportState.mockResolvedValueOnce(true);
+    const executeYouthReportCommand = jest.requireMock<typeof import("../commands/youthReportCommand")>("../commands/youthReportCommand").executeYouthReportCommand as jest.Mock;
+    executeYouthReportCommand.mockResolvedValueOnce({ success: true });
+
+    const update = {
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111, first_name: "U", last_name: "N" },
+        chat: { id: 222, type: "private" },
+        text: "some report text",
+        date: 1,
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
+    expect(executeYouthReportCommand).toHaveBeenCalledWith(111, 222, ["some report text"]);
+  });
+
+  it("rejects youth report callback in supergroup", async () => {
+    const answerCallbackQuery = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").answerCallbackQuery as jest.Mock;
+    const handleYouthReportCallback = jest.requireMock<typeof import("../commands/youthReportCommand")>("../commands/youthReportCommand").handleYouthReportCallback as jest.Mock;
+
+    const update = {
+      update_id: 1,
+      callback_query: {
+        id: "cq1",
+        from: { id: 111, first_name: "U" },
+        message: { message_id: 1, chat: { id: 222, type: "supergroup" }, from: { id: 1, first_name: "U" }, date: 1 },
+        data: "youth_report:person:idx:0",
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(false);
+    expect(answerCallbackQuery).toHaveBeenCalledWith("cq1", expect.stringContaining("личном чате"), true);
+    expect(handleYouthReportCallback).not.toHaveBeenCalled();
+  });
+
+  it("allows youth report callback in private chat for authorized user", async () => {
+    isUserAuthorized.mockReturnValue(true);
+    const answerCallbackQuery = jest.requireMock<typeof import("../services/telegramService")>("../services/telegramService").answerCallbackQuery as jest.Mock;
+    const handleYouthReportCallback = jest.requireMock<typeof import("../commands/youthReportCommand")>("../commands/youthReportCommand").handleYouthReportCallback as jest.Mock;
+    handleYouthReportCallback.mockResolvedValueOnce({ success: true });
+
+    const update = {
+      update_id: 1,
+      callback_query: {
+        id: "cq1",
+        from: { id: 111, first_name: "U" },
+        message: { message_id: 1, chat: { id: 222, type: "private" }, from: { id: 1, first_name: "U" }, date: 1 },
+        data: "youth_report:person:idx:0",
+      },
+    };
+
+    const r = await handleUpdate(update);
+    expect(r.success).toBe(true);
+    expect(answerCallbackQuery).toHaveBeenCalledWith("cq1");
+    expect(handleYouthReportCallback).toHaveBeenCalledWith(111, 222, "youth_report:person:idx:0", 1);
   });
 });
